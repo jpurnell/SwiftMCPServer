@@ -239,6 +239,107 @@ struct MCPServerBuilderTests {
     }
 }
 
+// MARK: - Test Resource/Prompt Providers
+
+/// Minimal resource provider for testing
+struct TestResourceProvider: MCPResourceProvider {
+    func listResources() async -> [Resource] {
+        return [
+            Resource(
+                name: "Test Resource",
+                uri: "test://resource",
+                description: "A test resource",
+                mimeType: "text/plain"
+            )
+        ]
+    }
+
+    func readResource(uri: String) async throws -> ReadResource.Result {
+        return ReadResource.Result(contents: [
+            .text("Test content", uri: uri, mimeType: "text/plain")
+        ])
+    }
+}
+
+/// Minimal prompt provider for testing
+struct TestPromptProvider: MCPPromptProvider {
+    func listPrompts() async -> [Prompt] {
+        return [
+            Prompt(
+                name: "test_prompt",
+                description: "A test prompt",
+                arguments: [
+                    Prompt.Argument(name: "input", description: "Test input", required: true)
+                ]
+            )
+        ]
+    }
+
+    func getPrompt(name: String, arguments: [String: String]?) async -> GetPrompt.Result {
+        return GetPrompt.Result(
+            description: "Test prompt result",
+            messages: [
+                .user(.text(text: "Hello from test prompt"))
+            ]
+        )
+    }
+}
+
+// MARK: - Resource/Prompt Provider Builder Tests
+
+@Suite("Resource/Prompt Provider Builder Tests")
+struct ProviderBuilderTests {
+
+    @Test("Builder sets resource provider")
+    func builderSetsResourceProvider() {
+        let config = MCPServer.builder()
+            .resourceProvider(TestResourceProvider())
+            .buildConfiguration()
+
+        #expect(config.resourceProvider != nil)
+    }
+
+    @Test("Builder default has no resource provider")
+    func builderDefaultNoResourceProvider() {
+        let config = MCPServer.builder()
+            .buildConfiguration()
+
+        #expect(config.resourceProvider == nil)
+    }
+
+    @Test("Builder sets prompt provider")
+    func builderSetsPromptProvider() {
+        let config = MCPServer.builder()
+            .promptProvider(TestPromptProvider())
+            .buildConfiguration()
+
+        #expect(config.promptProvider != nil)
+    }
+
+    @Test("Builder default has no prompt provider")
+    func builderDefaultNoPromptProvider() {
+        let config = MCPServer.builder()
+            .buildConfiguration()
+
+        #expect(config.promptProvider == nil)
+    }
+
+    @Test("Builder supports resource and prompt providers in chain")
+    func builderChainsProviders() {
+        let config = MCPServer.builder()
+            .serverName("Provider Test")
+            .tool(EchoToolHandler())
+            .resourceProvider(TestResourceProvider())
+            .promptProvider(TestPromptProvider())
+            .buildConfiguration()
+
+        #expect(config.serverName == "Provider Test")
+        #expect(config.toolHandlers.count == 1)
+        #expect(config.resourceProvider != nil)
+        #expect(config.promptProvider != nil)
+    }
+}
+
 // MARK: - MCPServerConfiguration Tests
 
 @Suite("MCPServerConfiguration Tests")

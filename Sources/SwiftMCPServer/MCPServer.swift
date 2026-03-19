@@ -155,6 +155,10 @@ public struct MCPServerConfiguration: Sendable {
     public let oauthServer: OAuthServer?
     /// Registered tool handlers.
     public let toolHandlers: [any MCPToolHandler]
+    /// Optional resource provider.
+    public let resourceProvider: (any MCPResourceProvider)?
+    /// Optional prompt provider.
+    public let promptProvider: (any MCPPromptProvider)?
 }
 
 // MARK: - MCPServerBuilder
@@ -181,6 +185,8 @@ public final class MCPServerBuilder: @unchecked Sendable {
     private var _authenticator: APIKeyAuthenticator? = nil
     private var _oauthServer: OAuthServer? = nil
     private var _toolHandlers: [any MCPToolHandler] = []
+    private var _resourceProvider: (any MCPResourceProvider)? = nil
+    private var _promptProvider: (any MCPPromptProvider)? = nil
 
     /// Set the server name.
     @discardableResult
@@ -253,6 +259,20 @@ public final class MCPServerBuilder: @unchecked Sendable {
         return self
     }
 
+    /// Set the resource provider.
+    @discardableResult
+    public func resourceProvider(_ provider: any MCPResourceProvider) -> MCPServerBuilder {
+        _resourceProvider = provider
+        return self
+    }
+
+    /// Set the prompt provider.
+    @discardableResult
+    public func promptProvider(_ provider: any MCPPromptProvider) -> MCPServerBuilder {
+        _promptProvider = provider
+        return self
+    }
+
     /// Build an immutable configuration from the current builder state.
     public func buildConfiguration() -> MCPServerConfiguration {
         return MCPServerConfiguration(
@@ -265,7 +285,9 @@ public final class MCPServerBuilder: @unchecked Sendable {
             verbose: _verbose,
             authenticator: _authenticator,
             oauthServer: _oauthServer,
-            toolHandlers: _toolHandlers
+            toolHandlers: _toolHandlers,
+            resourceProvider: _resourceProvider,
+            promptProvider: _promptProvider
         )
     }
 
@@ -350,6 +372,33 @@ public final class MCPServerBuilder: @unchecked Sendable {
                 name: request.name,
                 arguments: request.arguments
             )
+        }
+
+        // Register resource handlers if provider is set
+        if let resourceProvider = config.resourceProvider {
+            await server.withMethodHandler(ListResources.self) { _ in
+                let resources = await resourceProvider.listResources()
+                return ListResources.Result(resources: resources)
+            }
+
+            await server.withMethodHandler(ReadResource.self) { request in
+                return try await resourceProvider.readResource(uri: request.uri)
+            }
+        }
+
+        // Register prompt handlers if provider is set
+        if let promptProvider = config.promptProvider {
+            await server.withMethodHandler(ListPrompts.self) { _ in
+                let prompts = await promptProvider.listPrompts()
+                return ListPrompts.Result(prompts: prompts)
+            }
+
+            await server.withMethodHandler(GetPrompt.self) { request in
+                let stringArgs = request.arguments?.compactMapValues { value -> String? in
+                    value.stringValue
+                }
+                return await promptProvider.getPrompt(name: request.name, arguments: stringArgs)
+            }
         }
 
         // Start transport
