@@ -40,6 +40,10 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
         return OAuthHTTPHandler(server: server)
     }
 
+    /// Server name and version for protocol responses
+    private let serverName: String
+    private let serverVersion: String
+
     /// Logger
     private let logger: Logger
 
@@ -48,10 +52,12 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
     private var requestBody: ByteBuffer?
 
     /// Initialize handler
-    init(transport: HTTPServerTransport, authenticator: APIKeyAuthenticator?, oauthServer: OAuthServer?, logger: Logger) {
+    init(transport: HTTPServerTransport, authenticator: APIKeyAuthenticator?, oauthServer: OAuthServer?, serverName: String, serverVersion: String, logger: Logger) {
         self.transport = transport
         self.authenticator = authenticator
         self.oauthServer = oauthServer
+        self.serverName = serverName
+        self.serverVersion = serverVersion
         self.logger = logger
     }
 
@@ -197,8 +203,8 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
     private func handleServerInfo(context: ChannelHandlerContext) {
         let info = """
         {
-          "name": "BusinessMath MCP Server",
-          "version": "2.0.0",
+          "name": "\(serverName)",
+          "version": "\(serverVersion)",
           "protocol": "MCP Streamable HTTP (2025-03-26)",
           "platform": "cross-platform",
           "endpoints": {

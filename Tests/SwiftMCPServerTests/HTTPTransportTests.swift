@@ -170,7 +170,7 @@ struct HTTPTransportTests {
         #expect(httpResponse?.statusCode == 200, "Server info should return 200")
 
         let body = String(data: data, encoding: .utf8) ?? ""
-        #expect(body.contains("BusinessMath MCP Server"), "Should return server info")
+        #expect(body.contains("MCP Server"), "Should return server info")
 
         await transport.disconnect()
     }

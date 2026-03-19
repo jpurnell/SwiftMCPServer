@@ -107,7 +107,7 @@ public struct ConsentPage: Sendable {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Authorization Request - BusinessMath MCP</title>
+            <title>Authorization Request - MCP Server</title>
             <style>
                 * {
                     box-sizing: border-box;

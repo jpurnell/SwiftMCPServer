@@ -54,6 +54,10 @@ public actor HTTPServerTransport: Transport {
     private let tlsCertPath: String?
     private let tlsKeyPath: String?
 
+    /// Server name and version from configuration
+    internal let serverName: String
+    internal let serverVersion: String
+
     /// Initialize HTTP server transport
     /// - Parameters:
     ///   - port: Port number to listen on (default: 8080)
@@ -61,6 +65,8 @@ public actor HTTPServerTransport: Transport {
     ///   - oauthServer: Optional OAuth server for OAuth 2.0 authentication
     ///   - tlsCertPath: Path to TLS certificate chain (PEM format)
     ///   - tlsKeyPath: Path to TLS private key (PEM format)
+    ///   - serverName: Server name for MCP protocol responses
+    ///   - serverVersion: Server version for MCP protocol responses
     ///   - logger: Logger instance
     public init(
         port: UInt16 = 8080,
@@ -68,6 +74,8 @@ public actor HTTPServerTransport: Transport {
         oauthServer: OAuthServer? = nil,
         tlsCertPath: String? = nil,
         tlsKeyPath: String? = nil,
+        serverName: String = "MCP Server",
+        serverVersion: String = "1.0.0",
         logger: Logger = Logger(label: "http-server-transport")
     ) {
         self.port = port
@@ -76,6 +84,8 @@ public actor HTTPServerTransport: Transport {
         self.oauthServer = oauthServer
         self.tlsCertPath = tlsCertPath
         self.tlsKeyPath = tlsKeyPath
+        self.serverName = serverName
+        self.serverVersion = serverVersion
         self.responseManager = HTTPResponseManager(logger: logger)
         self.sseSessionManager = SSESessionManager(logger: logger)
         self.streamableSessionManager = StreamableSessionManager(logger: logger)
@@ -126,7 +136,7 @@ public actor HTTPServerTransport: Transport {
                     // Use nonisolated(unsafe) since NIO handlers are bound to a single event loop
                     nonisolated(unsafe) let decoder = ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .dropBytes))
                     nonisolated(unsafe) let encoder = HTTPResponseEncoder()
-                    let handler = MCPServerHandler(transport: self, authenticator: self.authenticator, oauthServer: self.oauthServer, logger: self.logger)
+                    let handler = MCPServerHandler(transport: self, authenticator: self.authenticator, oauthServer: self.oauthServer, serverName: self.serverName, serverVersion: self.serverVersion, logger: self.logger)
 
                     if let sslContext = sslContext {
                         nonisolated(unsafe) let sslHandler = NIOSSLServerHandler(context: sslContext)
@@ -203,8 +213,8 @@ public actor HTTPServerTransport: Transport {
                 "result": [
                     "protocolVersion": "2025-03-26",
                     "serverInfo": [
-                        "name": "BusinessMath MCP Server",
-                        "version": "2.0.0"
+                        "name": self.serverName,
+                        "version": self.serverVersion
                     ],
                     "capabilities": [
                         "tools": ["listChanged": false],

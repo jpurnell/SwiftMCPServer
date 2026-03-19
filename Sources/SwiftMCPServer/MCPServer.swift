@@ -477,7 +477,9 @@ public final class MCPServerBuilder: @unchecked Sendable {
                 authenticator: authenticator,
                 oauthServer: oauthServer,
                 tlsCertPath: tlsCertPath,
-                tlsKeyPath: tlsKeyPath
+                tlsKeyPath: tlsKeyPath,
+                serverName: config.serverName,
+                serverVersion: config.serverVersion
             )
             try await server.start(transport: httpTransport)
         } else {
