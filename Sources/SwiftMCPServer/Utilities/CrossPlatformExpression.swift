@@ -4,12 +4,12 @@ import Foundation
 ///
 /// On macOS: Uses NSExpression for full formula evaluation
 /// On Linux: Provides basic arithmetic operations
-enum ExpressionEvaluator {
+public enum ExpressionEvaluator {
 
     /// Evaluate a mathematical expression string
     /// - Parameter formula: Mathematical formula as a string (e.g., "2 + 3 * 4")
     /// - Returns: Result of the evaluation, or 0.0 if evaluation fails
-    static func evaluate(_ formula: String) -> Double {
+    public static func evaluate(_ formula: String) -> Double {
         #if os(macOS)
         // Use NSExpression on macOS
         let expression = NSExpression(format: formula)
