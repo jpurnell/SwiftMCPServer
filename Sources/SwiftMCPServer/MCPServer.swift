@@ -403,13 +403,79 @@ public final class MCPServerBuilder: @unchecked Sendable {
 
         // Start transport
         if args.transportMode == .http {
+            // Auto-configure auth from environment variables when not explicitly set
+            var authenticator = config.authenticator
+            var oauthServer = config.oauthServer
+
+            if authenticator == nil {
+                let envKeysString = ProcessInfo.processInfo.environment["MCP_API_KEYS"] ?? ""
+                let envKeys = envKeysString
+                    .split(separator: ",")
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+
+                let authRequired = ProcessInfo.processInfo.environment["MCP_AUTH_REQUIRED"] != "false"
+
+                let keyStore = APIKeyStore()
+                let storedKeyCount = await keyStore.keyCount()
+                if storedKeyCount > 0 {
+                    MCPServer.writeStderr("  Loaded \(storedKeyCount) API key(s) from persistent store\n")
+                }
+
+                let auth = APIKeyAuthenticator(
+                    keyStore: keyStore,
+                    environmentKeys: envKeys,
+                    authRequired: authRequired
+                )
+                let keyCount = await auth.keyCount()
+
+                if authRequired || keyCount > 0 {
+                    authenticator = auth
+                }
+
+                // Log auth status
+                if authRequired && oauthServer == nil {
+                    if keyCount > 0 {
+                        MCPServer.writeStderr("  API Key Authentication: ENABLED (\(keyCount) key(s))\n")
+                    } else {
+                        MCPServer.writeStderr("  API Key Authentication: ENABLED but NO KEYS configured\n")
+                    }
+                } else if !authRequired {
+                    MCPServer.writeStderr("  Authentication: DISABLED (MCP_AUTH_REQUIRED=false)\n")
+                }
+            }
+
+            if oauthServer == nil {
+                let oauthEnabled = ProcessInfo.processInfo.environment["MCP_OAUTH_ENABLED"] == "true"
+                if oauthEnabled {
+                    do {
+                        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+                        let oauthDir = homeDir.appendingPathComponent(".businessmath-mcp")
+                        try FileManager.default.createDirectory(at: oauthDir, withIntermediateDirectories: true)
+
+                        let oauthDbPath = oauthDir.appendingPathComponent("oauth.db").path
+                        let oauthStorage = try OAuthStorage(path: oauthDbPath)
+
+                        let issuer = ProcessInfo.processInfo.environment["MCP_OAUTH_ISSUER"]
+                            ?? "http://localhost:\(port)"
+
+                        oauthServer = OAuthServer(storage: oauthStorage, issuer: issuer)
+                        MCPServer.writeStderr("  OAuth 2.0: ENABLED (issuer: \(issuer))\n")
+                    } catch {
+                        MCPServer.writeStderr("  OAuth 2.0: FAILED to initialize - \(error.localizedDescription)\n")
+                    }
+                } else {
+                    MCPServer.writeStderr("  OAuth 2.0: DISABLED\n")
+                }
+            }
+
             let scheme = tlsCertPath != nil ? "HTTPS" : "HTTP"
             MCPServer.writeStderr("Starting \(config.serverName) with \(scheme) transport on port \(port)\n")
 
             let httpTransport = HTTPServerTransport(
                 port: port,
-                authenticator: config.authenticator,
-                oauthServer: config.oauthServer,
+                authenticator: authenticator,
+                oauthServer: oauthServer,
                 tlsCertPath: tlsCertPath,
                 tlsKeyPath: tlsKeyPath
             )
