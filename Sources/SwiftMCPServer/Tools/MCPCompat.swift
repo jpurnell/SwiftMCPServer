@@ -161,9 +161,9 @@ public struct AnyCodable: @unchecked Sendable {
 
 /// Compatibility result type
 public struct MCPToolCallResult: Sendable {
-    let result: CallTool.Result
+    public let result: CallTool.Result
 
-    init(_ result: CallTool.Result) {
+    public init(_ result: CallTool.Result) {
         self.result = result
     }
 
