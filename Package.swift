@@ -16,7 +16,7 @@ let package = Package(
         // MCP SDK
         .package(
             url: "https://github.com/modelcontextprotocol/swift-sdk.git",
-            from: "0.10.0"
+            from: "0.12.0"
         ),
         // SwiftNIO for cross-platform HTTP server
         .package(

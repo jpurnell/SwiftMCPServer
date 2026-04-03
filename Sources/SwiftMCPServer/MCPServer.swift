@@ -394,10 +394,7 @@ public final class MCPServerBuilder: @unchecked Sendable {
             }
 
             await server.withMethodHandler(GetPrompt.self) { request in
-                let stringArgs = request.arguments?.compactMapValues { value -> String? in
-                    value.stringValue
-                }
-                return await promptProvider.getPrompt(name: request.name, arguments: stringArgs)
+                return await promptProvider.getPrompt(name: request.name, arguments: request.arguments)
             }
         }
 
