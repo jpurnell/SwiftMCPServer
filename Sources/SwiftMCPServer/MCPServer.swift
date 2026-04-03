@@ -394,7 +394,16 @@ public final class MCPServerBuilder: @unchecked Sendable {
             }
 
             await server.withMethodHandler(GetPrompt.self) { request in
+                #if swift(>=6.1)
+                // swift-sdk 0.12.0+: arguments is already [String: String]?
                 return await promptProvider.getPrompt(name: request.name, arguments: request.arguments)
+                #else
+                // swift-sdk 0.10.x: arguments is [String: Value]?, needs conversion
+                let stringArgs = request.arguments?.compactMapValues { value -> String? in
+                    value.stringValue
+                }
+                return await promptProvider.getPrompt(name: request.name, arguments: stringArgs)
+                #endif
             }
         }
 

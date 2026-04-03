@@ -17,10 +17,19 @@ extension MCPToolCallResult {
             return ""
         }
         switch firstContent {
+        #if swift(>=6.1)
         case .text(let text, _, _):
             return text
         case .image, .resource, .audio, .resourceLink:
             return ""
+        #else
+        case .text(let text):
+            return text
+        case .image, .resource, .audio:
+            return ""
+        @unknown default:
+            return ""
+        #endif
         }
     }
 }
