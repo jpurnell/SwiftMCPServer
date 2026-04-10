@@ -460,6 +460,81 @@ amends: null
 superseded_by: null
 ```
 
+```yaml
+id: ADR-012
+date: 2026-04-10
+status: accepted
+category: api
+title: Lenient OAuth scope validation with RFC 9728 protected resource metadata
+context: |
+  Claude Code and other MCP clients were failing OAuth authentication with
+  "invalid_scope" errors. The server hardcoded three valid scopes
+  (mcp:tools, mcp:resources, mcp:prompts) and rejected anything else.
+  Claude Code either sends no scope or sends scopes the server didn't
+  recognize. Additionally, the server lacked the /.well-known/oauth-protected-resource
+  endpoint (RFC 9728), preventing clients from discovering available scopes.
+decision: |
+  1. Accept any scope string the client sends (per RFC 6749 §3.3 which permits
+     servers to ignore unknown scopes rather than reject them).
+  2. Default to "mcp:tools mcp:resources mcp:prompts" when scope is nil or empty.
+  3. Add GET /.well-known/oauth-protected-resource endpoint returning RFC 9728
+     metadata (resource, authorization_servers, scopes_supported, bearer_methods_supported).
+  4. Route the new endpoint as a public (no-auth-required) path.
+rationale: |
+  - MCP clients are evolving; strict scope validation breaks interop
+  - RFC 6749 §3.3 explicitly permits lenient scope handling
+  - RFC 9728 is required by the MCP auth spec for client discovery
+  - Defaulting to all scopes when none specified matches OAuth convention
+consequences: |
+  + All three MCP servers (BusinessMathMCP, DevGuidelinesMCP, GeoSeoMCP) work with Claude Code OAuth
+  + Clients that send unknown scopes (openid, profile, etc.) are no longer rejected
+  + Clients can discover scopes and auth server via standard endpoint
+  - Server no longer validates that requested scopes are meaningful (acceptable tradeoff)
+alternatives_rejected:
+  - "Whitelist-only validation: Breaks Claude Code and any client not sending exact MCP scopes"
+  - "Fix client-side only: Requires waiting for upstream Claude Code fix; doesn't solve spec compliance"
+affected_files:
+  - Sources/SwiftMCPServer/OAuth/OAuthServer.swift
+  - Sources/SwiftMCPServer/OAuth/OAuthHTTPHandler.swift
+  - Sources/SwiftMCPServer/Transport/MCPServerHandler.swift
+supersedes: null
+amends: null
+superseded_by: null
+```
+
+```yaml
+id: ADR-013
+date: 2026-04-10
+status: accepted
+category: api
+title: Version-agnostic GetPrompt arguments conversion
+context: |
+  SwiftMCPServer supports both swift-sdk 0.10.x and 0.12.x. The
+  GetPrompt.Parameters.arguments type changed from [String: Value]? in
+  0.10.x to [String: String]? in 0.12.x. A #if swift(>=6.1) check was
+  used to switch code paths, but Swift version doesn't determine sdk
+  version — Swift 6.2.4 can run with either sdk version.
+decision: |
+  Replace the #if swift(>=6.1) compile-time check with a string-interpolation
+  conversion that works for both types: "\(pair.value)" returns the string
+  itself for String values, and calls description for Value types.
+rationale: |
+  - Swift version ≠ sdk version; compile-time check was incorrect
+  - String interpolation on String is identity; on Value gives .description
+  - Single code path eliminates the version-coupling entirely
+consequences: |
+  + Builds correctly with any combination of Swift 6.0-6.3 and swift-sdk 0.10-0.12
+  - Minor overhead of string interpolation on already-String values (negligible)
+alternatives_rejected:
+  - "#if canImport with version: Swift doesn't support canImport version checks for SPM packages"
+  - "Always use Value path: Won't compile when sdk provides [String: String]?"
+affected_files:
+  - Sources/SwiftMCPServer/MCPServer.swift
+supersedes: null
+amends: null
+superseded_by: null
+```
+
 ---
 
-**Last Updated:** 2025-04-09
+**Last Updated:** 2026-04-10
