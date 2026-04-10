@@ -1,4 +1,4 @@
-# Implementation Checklist for SwiftMCPServer
+# Implementation Checklist for [PROJECT_NAME]
 
 **Purpose:** Track implementation progress and ensure completeness during active development.
 
@@ -275,7 +275,7 @@ swift test
 grep -rn 'try!\|as!\|\.first!\|fatalError\|precondition(' --include='*.swift' Sources/
 
 # Doc build
-swift package generate-documentation --target SwiftMCPServer
+swift package generate-documentation --target [PROJECT_NAME]
 ```
 
 ### Configuration
