@@ -636,6 +636,264 @@ struct OAuthServerTests {
         }
     }
 
+    // MARK: - Scope Leniency Tests
+
+    @Suite("Scope Leniency")
+    struct ScopeLeniencyTests {
+
+        @Test("Accepts nil scope and defaults to all MCP scopes")
+        func acceptsNilScopeWithDefault() async throws {
+            let server = try await OAuthServerTests.makeTestServer()
+
+            let client = try await server.registerClient(ClientRegistrationRequest(
+                clientName: "Nil Scope Client",
+                redirectUris: ["http://localhost/callback"],
+                grantTypes: ["authorization_code", "refresh_token"]
+            ))
+
+            let verifier = PKCE.generateCodeVerifier()
+            let challenge = try PKCE.generateCodeChallenge(verifier: verifier, method: .s256)
+
+            // Auth request with nil scope should succeed
+            let authResponse = try await server.handleAuthorizationRequest(AuthorizationRequest(
+                responseType: "code",
+                clientId: client.clientId,
+                redirectUri: "http://localhost/callback",
+                scope: nil,
+                state: nil,
+                codeChallenge: challenge,
+                codeChallengeMethod: "S256"
+            ))
+
+            #expect(!authResponse.code.isEmpty)
+
+            // Exchange code and verify scope defaults to all MCP scopes
+            let tokenResponse = try await server.handleTokenRequest(TokenRequest(
+                grantType: "authorization_code",
+                code: authResponse.code,
+                redirectUri: "http://localhost/callback",
+                clientId: client.clientId,
+                clientSecret: client.clientSecret,
+                codeVerifier: verifier,
+                refreshToken: nil
+            ))
+
+            #expect(tokenResponse.scope != nil)
+            let scopes = Set(tokenResponse.scope!.split(separator: " ").map(String.init))
+            #expect(scopes.contains("mcp:tools"))
+            #expect(scopes.contains("mcp:resources"))
+            #expect(scopes.contains("mcp:prompts"))
+        }
+
+        @Test("Accepts empty scope and defaults to all MCP scopes")
+        func acceptsEmptyScopeWithDefault() async throws {
+            let server = try await OAuthServerTests.makeTestServer()
+
+            let client = try await server.registerClient(ClientRegistrationRequest(
+                clientName: "Empty Scope Client",
+                redirectUris: ["http://localhost/callback"],
+                grantTypes: ["authorization_code", "refresh_token"]
+            ))
+
+            let verifier = PKCE.generateCodeVerifier()
+            let challenge = try PKCE.generateCodeChallenge(verifier: verifier, method: .s256)
+
+            // Auth request with empty scope should succeed and default
+            let authResponse = try await server.handleAuthorizationRequest(AuthorizationRequest(
+                responseType: "code",
+                clientId: client.clientId,
+                redirectUri: "http://localhost/callback",
+                scope: "",
+                state: nil,
+                codeChallenge: challenge,
+                codeChallengeMethod: "S256"
+            ))
+
+            #expect(!authResponse.code.isEmpty)
+
+            let tokenResponse = try await server.handleTokenRequest(TokenRequest(
+                grantType: "authorization_code",
+                code: authResponse.code,
+                redirectUri: "http://localhost/callback",
+                clientId: client.clientId,
+                clientSecret: client.clientSecret,
+                codeVerifier: verifier,
+                refreshToken: nil
+            ))
+
+            #expect(tokenResponse.scope != nil)
+            let scopes = Set(tokenResponse.scope!.split(separator: " ").map(String.init))
+            #expect(scopes.contains("mcp:tools"))
+            #expect(scopes.contains("mcp:resources"))
+            #expect(scopes.contains("mcp:prompts"))
+        }
+
+        @Test("Accepts whitespace-only scope and defaults to all MCP scopes")
+        func acceptsWhitespaceScopeWithDefault() async throws {
+            let server = try await OAuthServerTests.makeTestServer()
+
+            let client = try await server.registerClient(ClientRegistrationRequest(
+                clientName: "Whitespace Scope Client",
+                redirectUris: ["http://localhost/callback"]
+            ))
+
+            // Auth request with whitespace-only scope should succeed
+            let authResponse = try await server.handleAuthorizationRequest(AuthorizationRequest(
+                responseType: "code",
+                clientId: client.clientId,
+                redirectUri: "http://localhost/callback",
+                scope: "   ",
+                state: nil,
+                codeChallenge: nil,
+                codeChallengeMethod: nil
+            ))
+
+            #expect(!authResponse.code.isEmpty)
+        }
+
+        @Test("Accepts unknown scopes without rejection")
+        func acceptsUnknownScopes() async throws {
+            let server = try await OAuthServerTests.makeTestServer()
+
+            let client = try await server.registerClient(ClientRegistrationRequest(
+                clientName: "Unknown Scope Client",
+                redirectUris: ["http://localhost/callback"],
+                grantTypes: ["authorization_code", "refresh_token"]
+            ))
+
+            let verifier = PKCE.generateCodeVerifier()
+            let challenge = try PKCE.generateCodeChallenge(verifier: verifier, method: .s256)
+
+            // Auth request with non-MCP scopes should succeed (not throw invalidScope)
+            let authResponse = try await server.handleAuthorizationRequest(AuthorizationRequest(
+                responseType: "code",
+                clientId: client.clientId,
+                redirectUri: "http://localhost/callback",
+                scope: "openid profile",
+                state: nil,
+                codeChallenge: challenge,
+                codeChallengeMethod: "S256"
+            ))
+
+            #expect(!authResponse.code.isEmpty)
+
+            let tokenResponse = try await server.handleTokenRequest(TokenRequest(
+                grantType: "authorization_code",
+                code: authResponse.code,
+                redirectUri: "http://localhost/callback",
+                clientId: client.clientId,
+                clientSecret: client.clientSecret,
+                codeVerifier: verifier,
+                refreshToken: nil
+            ))
+
+            #expect(tokenResponse.scope == "openid profile")
+        }
+
+        @Test("Accepts mixed known and unknown scopes")
+        func acceptsMixedScopes() async throws {
+            let server = try await OAuthServerTests.makeTestServer()
+
+            let client = try await server.registerClient(ClientRegistrationRequest(
+                clientName: "Mixed Scope Client",
+                redirectUris: ["http://localhost/callback"],
+                grantTypes: ["authorization_code", "refresh_token"]
+            ))
+
+            let verifier = PKCE.generateCodeVerifier()
+            let challenge = try PKCE.generateCodeChallenge(verifier: verifier, method: .s256)
+
+            let authResponse = try await server.handleAuthorizationRequest(AuthorizationRequest(
+                responseType: "code",
+                clientId: client.clientId,
+                redirectUri: "http://localhost/callback",
+                scope: "mcp:tools openid",
+                state: nil,
+                codeChallenge: challenge,
+                codeChallengeMethod: "S256"
+            ))
+
+            #expect(!authResponse.code.isEmpty)
+
+            let tokenResponse = try await server.handleTokenRequest(TokenRequest(
+                grantType: "authorization_code",
+                code: authResponse.code,
+                redirectUri: "http://localhost/callback",
+                clientId: client.clientId,
+                clientSecret: client.clientSecret,
+                codeVerifier: verifier,
+                refreshToken: nil
+            ))
+
+            #expect(tokenResponse.scope == "mcp:tools openid")
+        }
+
+        @Test("Valid MCP scopes still work")
+        func validMCPScopesStillWork() async throws {
+            let server = try await OAuthServerTests.makeTestServer()
+
+            let client = try await server.registerClient(ClientRegistrationRequest(
+                clientName: "Valid Scope Client",
+                redirectUris: ["http://localhost/callback"]
+            ))
+
+            let authResponse = try await server.handleAuthorizationRequest(AuthorizationRequest(
+                responseType: "code",
+                clientId: client.clientId,
+                redirectUri: "http://localhost/callback",
+                scope: "mcp:tools mcp:resources mcp:prompts",
+                state: nil,
+                codeChallenge: nil,
+                codeChallengeMethod: nil
+            ))
+
+            #expect(!authResponse.code.isEmpty)
+        }
+
+        @Test("validateAuthorizationRequest also accepts unknown scopes")
+        func validateAlsoAcceptsUnknownScopes() async throws {
+            let server = try await OAuthServerTests.makeTestServer()
+
+            let client = try await server.registerClient(ClientRegistrationRequest(
+                clientName: "Validate Scope Client",
+                redirectUris: ["http://localhost/callback"]
+            ))
+
+            // validateAuthorizationRequest should not throw for unknown scopes
+            let validatedClient = try await server.validateAuthorizationRequest(AuthorizationRequest(
+                responseType: "code",
+                clientId: client.clientId,
+                redirectUri: "http://localhost/callback",
+                scope: "openid profile email",
+                state: nil,
+                codeChallenge: nil,
+                codeChallengeMethod: nil
+            ))
+
+            #expect(validatedClient.clientId == client.clientId)
+        }
+    }
+
+    // MARK: - Protected Resource Metadata Tests
+
+    @Suite("Protected Resource Metadata")
+    struct ProtectedResourceMetadataTests {
+
+        @Test("Returns RFC 9728 compliant metadata")
+        func returnsRFC9728Metadata() async throws {
+            let server = try await OAuthServerTests.makeTestServer()
+
+            let metadata = await server.getProtectedResourceMetadata()
+
+            #expect(metadata.resource == "https://example.com")
+            #expect(metadata.authorizationServers == ["https://example.com"])
+            #expect(metadata.scopesSupported.contains("mcp:tools"))
+            #expect(metadata.scopesSupported.contains("mcp:resources"))
+            #expect(metadata.scopesSupported.contains("mcp:prompts"))
+            #expect(metadata.bearerMethodsSupported.contains("header"))
+        }
+    }
+
     // MARK: - Client Authentication Tests
 
     @Suite("Client Authentication")

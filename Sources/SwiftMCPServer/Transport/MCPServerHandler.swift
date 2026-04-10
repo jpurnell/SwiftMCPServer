@@ -121,7 +121,7 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
 
 
         // OAuth endpoints are always public (they handle their own auth)
-        let oauthEndpoints = ["/.well-known/oauth-authorization-server", "/register", "/authorize", "/authorize/consent", "/token"]
+        let oauthEndpoints = ["/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server", "/register", "/authorize", "/authorize/consent", "/token"]
         let isOAuthEndpoint = oauthEndpoints.contains(path)
 
         // Check authentication for protected endpoints
@@ -171,6 +171,9 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
             await processLegacySSE(channel: channel, eventLoop: eventLoop, context: context)
 
         // OAuth 2.0 Endpoints
+        case (.GET, "/.well-known/oauth-protected-resource"):
+            await handleProtectedResourceMetadata(context: context)
+
         case (.GET, "/.well-known/oauth-authorization-server"):
             await handleOAuthMetadata(context: context)
 
@@ -226,6 +229,15 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
     }
 
     // MARK: - OAuth Endpoint Handlers
+
+    private func handleProtectedResourceMetadata(context: ChannelHandlerContext) async {
+        if let handler = oauthHandler {
+            let response = await handler.handleProtectedResourceMetadata()
+            sendOAuthResponse(context: context, response: response)
+        } else {
+            handleNoOAuthMetadata(context: context)
+        }
+    }
 
     private func handleOAuthMetadata(context: ChannelHandlerContext) async {
         if let handler = oauthHandler {

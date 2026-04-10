@@ -82,6 +82,21 @@ public actor OAuthServer {
         )
     }
 
+    // MARK: - Protected Resource Metadata (RFC 9728)
+
+    /// Returns OAuth 2.0 Protected Resource Metadata
+    ///
+    /// Per RFC 9728, this tells clients which authorization server protects
+    /// this resource and which scopes are available.
+    public func getProtectedResourceMetadata() -> ProtectedResourceMetadata {
+        ProtectedResourceMetadata(
+            resource: issuer,
+            authorizationServers: [issuer],
+            scopesSupported: ["mcp:tools", "mcp:resources", "mcp:prompts"],
+            bearerMethodsSupported: ["header"]
+        )
+    }
+
     // MARK: - Client Registration (RFC 7591)
 
     /// Registers a new OAuth client
@@ -150,13 +165,14 @@ public actor OAuthServer {
             throw OAuthError.invalidRequest
         }
 
-        // Validate scope if provided
-        if let scope = request.scope {
-            let validScopes = Set(["mcp:tools", "mcp:resources", "mcp:prompts"])
-            let requestedScopes = Set(scope.split(separator: " ").map(String.init))
-            guard requestedScopes.isSubset(of: validScopes) else {
-                throw OAuthError.invalidScope
-            }
+        // Normalize scope: default to all MCP scopes when not provided or empty.
+        // Accept any scope the client requests per RFC 6749 §3.3.
+        let defaultScope = "mcp:tools mcp:resources mcp:prompts"
+        let effectiveScope: String
+        if let scope = request.scope, !scope.trimmingCharacters(in: .whitespaces).isEmpty {
+            effectiveScope = scope
+        } else {
+            effectiveScope = defaultScope
         }
 
         // Generate authorization code
@@ -167,7 +183,7 @@ public actor OAuthServer {
             code: code,
             clientId: request.clientId,
             redirectUri: request.redirectUri,
-            scope: request.scope,
+            scope: effectiveScope,
             codeChallenge: request.codeChallenge,
             codeChallengeMethod: request.codeChallengeMethod,
             expiresAt: now.addingTimeInterval(authorizationCodeLifetime),
@@ -206,14 +222,8 @@ public actor OAuthServer {
             throw OAuthError.invalidRequest
         }
 
-        // Validate scope if provided
-        if let scope = request.scope {
-            let validScopes = Set(["mcp:tools", "mcp:resources", "mcp:prompts"])
-            let requestedScopes = Set(scope.split(separator: " ").map(String.init))
-            guard requestedScopes.isSubset(of: validScopes) else {
-                throw OAuthError.invalidScope
-            }
-        }
+        // Scope validation: accept any scope the client requests.
+        // Unknown scopes are passed through per RFC 6749 §3.3.
 
         return client
     }
@@ -504,6 +514,23 @@ public struct ServerMetadata: Codable, Sendable {
         case codeChallengeMethodsSupported = "code_challenge_methods_supported"
         case tokenEndpointAuthMethodsSupported = "token_endpoint_auth_methods_supported"
         case scopesSupported = "scopes_supported"
+    }
+}
+
+// MARK: - Protected Resource Metadata
+
+/// OAuth 2.0 Protected Resource Metadata per RFC 9728
+public struct ProtectedResourceMetadata: Codable, Sendable {
+    public let resource: String
+    public let authorizationServers: [String]
+    public let scopesSupported: [String]
+    public let bearerMethodsSupported: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case resource
+        case authorizationServers = "authorization_servers"
+        case scopesSupported = "scopes_supported"
+        case bearerMethodsSupported = "bearer_methods_supported"
     }
 }
 

@@ -48,6 +48,42 @@ struct OAuthHTTPHandlerTests {
         }
     }
 
+    // MARK: - Protected Resource Metadata Tests
+
+    @Suite("Protected Resource Metadata Endpoint")
+    struct ProtectedResourceMetadataTests {
+
+        @Test("Returns valid JSON protected resource metadata")
+        func returnsValidJSON() async throws {
+            let handler = try await OAuthHTTPHandlerTests.makeTestHandler()
+
+            let response = await handler.handleProtectedResourceMetadata()
+
+            #expect(response.statusCode == 200)
+            #expect(response.contentType == "application/json")
+            #expect(response.body.contains("resource"))
+            #expect(response.body.contains("authorization_servers"))
+            #expect(response.body.contains("scopes_supported"))
+        }
+
+        @Test("Protected resource metadata is RFC 9728 compliant")
+        func metadataIsRFC9728Compliant() async throws {
+            let handler = try await OAuthHTTPHandlerTests.makeTestHandler()
+
+            let response = await handler.handleProtectedResourceMetadata()
+
+            let data = response.body.data(using: .utf8)!
+            let metadata = try JSONDecoder().decode(ProtectedResourceMetadata.self, from: data)
+
+            #expect(metadata.resource == "https://example.com")
+            #expect(metadata.authorizationServers == ["https://example.com"])
+            #expect(metadata.scopesSupported.contains("mcp:tools"))
+            #expect(metadata.scopesSupported.contains("mcp:resources"))
+            #expect(metadata.scopesSupported.contains("mcp:prompts"))
+            #expect(metadata.bearerMethodsSupported.contains("header"))
+        }
+    }
+
     // MARK: - Registration Endpoint Tests
 
     @Suite("Registration Endpoint")

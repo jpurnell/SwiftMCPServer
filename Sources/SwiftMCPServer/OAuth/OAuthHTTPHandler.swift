@@ -3,6 +3,7 @@ import Foundation
 /// HTTP request/response handler for OAuth 2.0 endpoints
 ///
 /// Handles HTTP parsing and serialization for OAuth endpoints:
+/// - `/.well-known/oauth-protected-resource` - Protected resource metadata (RFC 9728)
 /// - `/.well-known/oauth-authorization-server` - Server metadata
 /// - `/register` - Client registration
 /// - `/authorize` - Authorization endpoint
@@ -18,6 +19,33 @@ public struct OAuthHTTPHandler: Sendable {
     /// - Parameter server: The OAuth server to delegate to
     public init(server: OAuthServer) {
         self.server = server
+    }
+
+    // MARK: - Protected Resource Metadata
+
+    /// Handles GET /.well-known/oauth-protected-resource
+    ///
+    /// Returns RFC 9728 Protected Resource Metadata so clients can discover
+    /// which authorization server protects this resource and which scopes to request.
+    ///
+    /// - Returns: JSON-encoded protected resource metadata
+    public func handleProtectedResourceMetadata() async -> OAuthHTTPResponse {
+        let metadata = await server.getProtectedResourceMetadata()
+
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(metadata)
+            let body = String(data: data, encoding: .utf8) ?? "{}"
+
+            return OAuthHTTPResponse(
+                statusCode: 200,
+                contentType: "application/json",
+                body: body
+            )
+        } catch {
+            return errorResponse(.serverError("Failed to encode protected resource metadata"))
+        }
     }
 
     // MARK: - Server Metadata
