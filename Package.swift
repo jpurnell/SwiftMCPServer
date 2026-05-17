@@ -13,10 +13,10 @@ let package = Package(
         )
     ],
     dependencies: [
-        // MCP SDK
+        // MCP SDK (fork with Swift 6.3 concurrency fix)
         .package(
-            url: "https://github.com/modelcontextprotocol/swift-sdk.git",
-            from: "0.10.0"
+            url: "https://github.com/jpurnell/swift-sdk.git",
+            "0.10.0"..<"0.11.0"
         ),
         // SwiftNIO for cross-platform HTTP server
         .package(
