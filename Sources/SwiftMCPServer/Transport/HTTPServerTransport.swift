@@ -24,6 +24,7 @@ import Logging
 /// 2. Client includes Mcp-Session-Id header on all subsequent requests
 /// 3. Server routes responses directly as JSON via HTTPResponseManager
 public actor HTTPServerTransport: Transport {
+    /// Logger for transport-level diagnostics
     public let logger: Logger
     private let port: UInt16
 
@@ -98,6 +99,7 @@ public actor HTTPServerTransport: Transport {
         self.receiveContinuation = continuation
     }
 
+    /// Starts the HTTP server and begins listening for connections
     public func connect() async throws {
         // Start response manager cleanup task
         await responseManager.startCleanup()
@@ -123,7 +125,7 @@ public actor HTTPServerTransport: Transport {
             )
             tlsConfig.minimumTLSVersion = .tlsv12
             sslContext = try NIOSSLContext(configuration: tlsConfig)
-            logger.info("TLS enabled with cert: \(certPath)")
+            logger.info("TLS enabled with cert: \(certPath, privacy: .public)")
         }
 
         // Configure and bind server with SwiftNIO
@@ -133,12 +135,14 @@ public actor HTTPServerTransport: Transport {
                 .childChannelInitializer { [sslContext] channel in
                     // Manually configure HTTP pipeline without HTTPServerPipelineHandler
                     // (which would close connections after each response, breaking SSE)
-                    // Use nonisolated(unsafe) since NIO handlers are bound to a single event loop
+                    // Justification: NIO handler is bound to a single EventLoop and never escapes the channel pipeline
                     nonisolated(unsafe) let decoder = ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .dropBytes))
+                    // Justification: NIO handler is bound to a single EventLoop and never escapes the channel pipeline
                     nonisolated(unsafe) let encoder = HTTPResponseEncoder()
                     let handler = MCPServerHandler(transport: self, authenticator: self.authenticator, oauthServer: self.oauthServer, serverName: self.serverName, serverVersion: self.serverVersion, logger: self.logger)
 
                     if let sslContext = sslContext {
+                        // Justification: NIO handler is bound to a single EventLoop and never escapes the channel pipeline
                         nonisolated(unsafe) let sslHandler = NIOSSLServerHandler(context: sslContext)
                         return channel.pipeline.addHandler(sslHandler).flatMap {
                             channel.pipeline.addHandler(decoder)
@@ -159,14 +163,15 @@ public actor HTTPServerTransport: Transport {
             self.serverChannel = channel
 
             let scheme = sslContext != nil ? "HTTPS" : "HTTP"
-            logger.info("\(scheme) server listening on port \(port)")
+            logger.info("\(scheme, privacy: .public) server listening on port \(port, privacy: .public)")
         } catch {
-            logger.error("Failed to bind to port \(port): \(error)")
-            try? await group.shutdownGracefully()
+            logger.error("Failed to bind to port \(port, privacy: .public): \(error, privacy: .public)")
+            try? await group.shutdownGracefully() // silent: cleanup during error path, best-effort
             throw HTTPServerError.failedToCreateListener
         }
     }
 
+    /// Gracefully shuts down the server and all active sessions
     public func disconnect() async {
         // Stop response manager cleanup task
         await responseManager.stopCleanup()
@@ -179,7 +184,7 @@ public actor HTTPServerTransport: Transport {
 
         // Close server channel
         if let channel = serverChannel {
-            try? await channel.close()
+            try? await channel.close() // silent: channel may already be closed
             serverChannel = nil
         }
 
@@ -188,7 +193,7 @@ public actor HTTPServerTransport: Transport {
             do {
                 try await group.shutdownGracefully()
             } catch {
-                logger.error("Error shutting down event loop group: \(error.localizedDescription)")
+                logger.error("Error shutting down event loop group: \(error.localizedDescription, privacy: .public)")
             }
             eventLoopGroup = nil
         }
@@ -197,6 +202,7 @@ public actor HTTPServerTransport: Transport {
         receiveContinuation.finish()
     }
 
+    /// Routes outgoing response data to the appropriate client connection
     public func send(_ data: Data) async throws {
         // Parse response for routing
         let responseStr = String(data: data, encoding: .utf8) ?? "binary"
@@ -204,7 +210,7 @@ public actor HTTPServerTransport: Transport {
         // Check for "already initialized" error and convert to cached success response
         // This allows multiple Claude Code health checks to succeed
         if responseStr.contains("Server is already initialized"),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], // silent: falls through to normal routing on parse failure
            let errorId = json["id"] {
             // Create a synthetic success response using cached capabilities
             let successResponse: [String: Any] = [
@@ -224,7 +230,7 @@ public actor HTTPServerTransport: Transport {
                     ]
                 ]
             ]
-            if let successData = try? JSONSerialization.data(withJSONObject: successResponse) {
+            if let successData = try? JSONSerialization.data(withJSONObject: successResponse) { // silent: falls through to normal routing on serialization failure
                 logger.debug("Converted 'already initialized' error to success response")
                 _ = await responseManager.routeResponse(successData)
                 return
@@ -245,11 +251,12 @@ public actor HTTPServerTransport: Transport {
             // Try legacy SSE manager as last resort
             let legacyRouted = await sseSessionManager.routeResponse(data)
             if !legacyRouted {
-                logger.warning("Failed to route response (\(data.count) bytes) - no pending request found")
+                logger.warning("Failed to route response (\(data.count, privacy: .public) bytes) - no pending request found")
             }
         }
     }
 
+    /// Returns the stream of incoming request data from clients
     public func receive() -> AsyncThrowingStream<Data, Error> {
         return receiveStream
     }

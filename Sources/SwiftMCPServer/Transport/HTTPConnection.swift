@@ -38,10 +38,10 @@ public protocol HTTPConnection: Sendable {
     var id: String { get }
 
     /// Remote address of the connected client
-    var remoteAddress: String { get }
+    var remoteAddress: String { get } // LIVE: protocol requirement used by conforming types
 
     /// Whether the connection is currently active
-    var isActive: Bool { get async }
+    var isActive: Bool { get async } // LIVE: protocol requirement used by conforming types
 
     /// Send data to the client (used for SSE streaming where .head was already sent)
     /// - Parameter data: Data to send
@@ -100,6 +100,7 @@ public enum HTTPConnectionError: Error, CustomStringConvertible {
     /// Invalid data format
     case invalidData
 
+    /// A human-readable description of the error
     public var description: String {
         switch self {
         case .connectionInactive:

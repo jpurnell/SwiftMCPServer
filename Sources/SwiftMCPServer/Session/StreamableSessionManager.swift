@@ -30,6 +30,7 @@ public actor StreamableSessionManager {
         var sseConnections: [SSESession] = []
     }
 
+    /// Creates a new session manager with the given timeout and logger
     public init(
         sessionTimeout: TimeInterval = 1800.0,
         logger: Logger = Logger(label: "streamable-session-manager")
@@ -48,7 +49,7 @@ public actor StreamableSessionManager {
             createdAt: Date(),
             lastActivityAt: Date()
         )
-        logger.info("Created streamable session: \(sessionId)")
+        logger.info("Created streamable session: \(sessionId, privacy: .public)")
         return sessionId
     }
 
@@ -72,14 +73,14 @@ public actor StreamableSessionManager {
         for sse in session.sseConnections {
             Task { await sse.close() }
         }
-        logger.info("Removed streamable session: \(sessionId)")
+        logger.info("Removed streamable session: \(sessionId, privacy: .public)")
         return true
     }
 
     /// Add an SSE connection to a session (for GET /mcp streams)
     public func addSSEConnection(_ sseSession: SSESession, to sessionId: String) {
         sessions[sessionId]?.sseConnections.append(sseSession)
-        logger.debug("Added SSE connection to session \(sessionId)")
+        logger.debug("Added SSE connection to session \(sessionId, privacy: .public)")
     }
 
     /// Get active SSE connections for a session (for broadcasting server-initiated messages)
@@ -107,6 +108,7 @@ public actor StreamableSessionManager {
 
     // MARK: - Maintenance
 
+    /// Starts periodic cleanup and heartbeat tasks
     public func startMaintenance() {
         guard cleanupTask == nil else { return }
 
@@ -127,6 +129,7 @@ public actor StreamableSessionManager {
         logger.info("Started streamable session maintenance")
     }
 
+    /// Stops the periodic cleanup and heartbeat tasks
     public func stopMaintenance() {
         cleanupTask?.cancel()
         cleanupTask = nil
@@ -134,6 +137,7 @@ public actor StreamableSessionManager {
         heartbeatTask = nil
     }
 
+    /// Shuts down all sessions and cancels maintenance tasks
     public func shutdown() {
         stopMaintenance()
         for session in sessions.values {
@@ -155,7 +159,7 @@ public actor StreamableSessionManager {
         }
         for id in expired {
             _ = removeSession(id)
-            logger.info("Cleaned up expired streamable session: \(id)")
+            logger.info("Cleaned up expired streamable session: \(id, privacy: .public)")
         }
     }
 

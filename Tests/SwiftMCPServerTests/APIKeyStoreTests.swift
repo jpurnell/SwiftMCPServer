@@ -175,7 +175,8 @@ struct APIKeyStoreTests {
 
             let keys = try await store.listKeys()
             let updatedKey = keys.first { $0.key == key.key }
-            #expect(updatedKey?.lastUsed != nil)
+            let lastUsed = try #require(updatedKey?.lastUsed)
+            #expect(lastUsed.timeIntervalSinceNow > -5)
 
             // Cleanup
             try? FileManager.default.removeItem(at: tempDir)

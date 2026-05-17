@@ -1,5 +1,6 @@
 import Foundation
 import Crypto
+import Logging
 
 // MARK: - APIKey Model
 
@@ -34,10 +35,12 @@ public struct APIKey: Codable, Sendable, Equatable {
 
     /// Generates a new API key with the standard format
     ///
-    /// - Parameter name: Human-readable name for the key
+    /// - Parameters:
+    ///   - name: Human-readable name for the key
+    ///   - rng: Random number generator to use
     /// - Returns: A new API key
-    public static func generate(name: String) -> APIKey {
-        let randomBytes = (0..<24).map { _ in UInt8.random(in: 0...255) }
+    public static func generate(name: String, using rng: inout some RandomNumberGenerator) -> APIKey {
+        let randomBytes = (0..<24).map { _ in UInt8.random(in: 0...255, using: &rng) }
         let base64 = Data(randomBytes)
             .base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
@@ -53,6 +56,15 @@ public struct APIKey: Codable, Sendable, Equatable {
             created: Date(),
             lastUsed: nil
         )
+    }
+
+    /// Generates a new API key with the standard format
+    ///
+    /// - Parameter name: Human-readable name for the key
+    /// - Returns: A new API key
+    public static func generate(name: String) -> APIKey {
+        var rng = SystemRandomNumberGenerator() // stochastic:exempt convenience wrapper; injectable overload above
+        return generate(name: name, using: &rng)
     }
 
     // MARK: - Validation
@@ -172,6 +184,7 @@ public actor APIKeyStore {
         do {
             try ensureLoaded()
         } catch {
+            Logger(label: "api-key-store").debug("Failed to load keys: \(error.localizedDescription, privacy: .public)")
             return []
         }
 
@@ -193,6 +206,7 @@ public actor APIKeyStore {
         do {
             try ensureLoaded()
         } catch {
+            Logger(label: "api-key-store").debug("Failed to load keys: \(error.localizedDescription, privacy: .public)")
             return false
         }
 
@@ -206,8 +220,8 @@ public actor APIKeyStore {
         keys[index] = updatedKey
 
         // Save asynchronously (don't block validation)
-        Task {
-            try? self.save()
+        Task { [self] in
+            try? await self.save() // silent: last-used timestamp update is non-critical
         }
 
         return true
@@ -236,6 +250,7 @@ public actor APIKeyStore {
         do {
             try ensureLoaded()
         } catch {
+            Logger(label: "api-key-store").debug("Failed to load keys: \(error.localizedDescription, privacy: .public)")
             return 0
         }
         return keys.count
@@ -246,14 +261,16 @@ public actor APIKeyStore {
     private func ensureLoaded() throws {
         guard !loaded else { return }
 
-        // Create directory if needed
+        // Create directory if needed (standardize path to prevent traversal)
+        let standardizedDirectory = directory.standardized
         try FileManager.default.createDirectory(
-            at: directory,
+            at: standardizedDirectory,
             withIntermediateDirectories: true
         )
 
         // Load existing keys if file exists
-        if FileManager.default.fileExists(atPath: keysFile.path) {
+        if (try? keysFile.checkResourceIsReachable()) == true { // silent: file may not exist yet
+
             let data = try Data(contentsOf: keysFile)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601

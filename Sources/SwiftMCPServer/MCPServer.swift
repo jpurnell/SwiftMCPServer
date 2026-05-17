@@ -174,6 +174,7 @@ public struct MCPServerConfiguration: Sendable {
 ///     .tool(MyToolHandler())
 ///     .run()
 /// ```
+// Justification: all mutable state is only accessed during the build phase before run() is called
 public final class MCPServerBuilder: @unchecked Sendable {
     private var _serverName: String = "MCP Server"
     private var _serverVersion: String = "1.0.0"
@@ -467,6 +468,7 @@ public final class MCPServerBuilder: @unchecked Sendable {
                         oauthServer = OAuthServer(storage: oauthStorage, issuer: issuer)
                         MCPServer.writeStderr("  OAuth 2.0: ENABLED (issuer: \(issuer))\n")
                     } catch {
+                        Logger(label: "mcp-server").error("OAuth init failed: \(error.localizedDescription, privacy: .public)")
                         MCPServer.writeStderr("  OAuth 2.0: FAILED to initialize - \(error.localizedDescription)\n")
                     }
                 } else {
@@ -496,13 +498,6 @@ public final class MCPServerBuilder: @unchecked Sendable {
         await server.waitUntilCompleted()
     }
 
-    // MARK: - Key Management
-
-    /// Handle --generate-key command
-    static func handleGenerateKey(name: String?) async throws {
-        // Delegate to MCPServer
-        try await MCPServer.handleGenerateKey(name: name)
-    }
 }
 
 // MARK: - MCPServer Static Helpers

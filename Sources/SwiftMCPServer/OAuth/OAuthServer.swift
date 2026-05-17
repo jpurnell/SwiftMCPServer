@@ -494,14 +494,23 @@ public actor OAuthServer {
 
 /// OAuth 2.0 Authorization Server Metadata per RFC 8414
 public struct ServerMetadata: Codable, Sendable {
+    /// The authorization server's issuer identifier URL
     public let issuer: String
+    /// URL of the authorization endpoint
     public let authorizationEndpoint: String
+    /// URL of the token endpoint
     public let tokenEndpoint: String
+    /// URL of the dynamic client registration endpoint
     public let registrationEndpoint: String?
+    /// Supported OAuth 2.0 response types
     public let responseTypesSupported: [String]
+    /// Supported grant types
     public let grantTypesSupported: [String]
+    /// Supported PKCE code challenge methods
     public let codeChallengeMethodsSupported: [String]
+    /// Supported token endpoint authentication methods
     public let tokenEndpointAuthMethodsSupported: [String]
+    /// Supported OAuth scopes
     public let scopesSupported: [String]?
 
     private enum CodingKeys: String, CodingKey {
@@ -521,9 +530,13 @@ public struct ServerMetadata: Codable, Sendable {
 
 /// OAuth 2.0 Protected Resource Metadata per RFC 9728
 public struct ProtectedResourceMetadata: Codable, Sendable {
+    /// The protected resource identifier
     public let resource: String
+    /// URLs of authorization servers that protect this resource
     public let authorizationServers: [String]
+    /// Scopes supported by this resource
     public let scopesSupported: [String]
+    /// Supported bearer token methods
     public let bearerMethodsSupported: [String]
 
     private enum CodingKeys: String, CodingKey {
@@ -538,11 +551,17 @@ public struct ProtectedResourceMetadata: Codable, Sendable {
 
 /// Response from dynamic client registration
 public struct ClientRegistrationResponse: Codable, Sendable {
+    /// The assigned client identifier
     public let clientId: String
+    /// The assigned client secret (if applicable)
     public let clientSecret: String?
+    /// The registered client name
     public let clientName: String
+    /// Registered redirect URIs
     public let redirectUris: [String]
+    /// Authorized grant types for this client
     public let grantTypes: [String]
+    /// Token endpoint authentication method for this client
     public let tokenEndpointAuthMethod: String
 
     private enum CodingKeys: String, CodingKey {
@@ -559,14 +578,22 @@ public struct ClientRegistrationResponse: Codable, Sendable {
 
 /// OAuth 2.0 authorization request parameters
 public struct AuthorizationRequest: Sendable {
+    /// The requested response type (e.g. "code")
     public let responseType: String
+    /// The client identifier
     public let clientId: String
+    /// The redirect URI for the authorization response
     public let redirectUri: String
+    /// The requested scope
     public let scope: String?
+    /// Opaque state value for CSRF protection
     public let state: String?
+    /// PKCE code challenge
     public let codeChallenge: String?
+    /// PKCE code challenge method (e.g. "S256")
     public let codeChallengeMethod: String?
 
+    /// Creates a new authorization request
     public init(
         responseType: String,
         clientId: String,
@@ -590,9 +617,12 @@ public struct AuthorizationRequest: Sendable {
 
 /// OAuth 2.0 authorization response
 public struct AuthorizationResponse: Sendable {
+    /// The authorization code
     public let code: String
+    /// The state parameter echoed back from the request
     public let state: String?
 
+    /// Creates a new authorization response
     public init(code: String, state: String?) {
         self.code = code
         self.state = state
@@ -603,14 +633,22 @@ public struct AuthorizationResponse: Sendable {
 
 /// OAuth 2.0 token request parameters
 public struct TokenRequest: Sendable {
+    /// The grant type (e.g. "authorization_code", "refresh_token")
     public let grantType: String
+    /// The authorization code (for authorization_code grant)
     public let code: String?
+    /// The redirect URI used in the authorization request
     public let redirectUri: String?
+    /// The client identifier
     public let clientId: String
+    /// The client secret (for confidential clients)
     public let clientSecret: String?
+    /// The PKCE code verifier
     public let codeVerifier: String?
+    /// The refresh token (for refresh_token grant)
     public let refreshToken: String?
 
+    /// Creates a new token request
     public init(
         grantType: String,
         code: String?,

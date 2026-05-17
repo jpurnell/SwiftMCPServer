@@ -65,16 +65,11 @@ public enum PKCE {
 
     /// Generates a cryptographically random code verifier
     ///
-    /// Per RFC 7636 §4.1, the code verifier is a high-entropy cryptographic
-    /// random string using the unreserved characters [A-Z] / [a-z] / [0-9] /
-    /// "-" / "." / "_" / "~", with a minimum length of 43 characters and a
-    /// maximum length of 128 characters.
-    ///
+    /// - Parameter rng: Random number generator to use
     /// - Returns: A URL-safe random string suitable for use as a code verifier
-    public static func generateCodeVerifier() -> String {
+    public static func generateCodeVerifier(using rng: inout some RandomNumberGenerator) -> String {
         // Generate 32 bytes of random data (256 bits of entropy)
         var bytes = [UInt8](repeating: 0, count: 32)
-        var rng = SystemRandomNumberGenerator()
 
         for i in 0..<32 {
             bytes[i] = UInt8.random(in: 0...255, using: &rng)
@@ -86,6 +81,14 @@ public enum PKCE {
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
+    }
+
+    /// Generates a cryptographically random code verifier using the system RNG
+    ///
+    /// - Returns: A URL-safe random string suitable for use as a code verifier
+    public static func generateCodeVerifier() -> String {
+        var rng = SystemRandomNumberGenerator() // stochastic:exempt convenience wrapper; injectable overload above
+        return generateCodeVerifier(using: &rng)
     }
 
     /// Validates a code verifier per RFC 7636 §4.1
@@ -202,7 +205,4 @@ public enum PKCE {
 public enum PKCEError: Error, Sendable {
     /// The code verifier does not meet RFC 7636 requirements
     case invalidVerifier
-
-    /// The code challenge verification failed
-    case verificationFailed
 }

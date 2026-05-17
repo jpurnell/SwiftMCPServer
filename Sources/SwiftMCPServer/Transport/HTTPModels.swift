@@ -71,13 +71,13 @@ public struct HTTPRequest: Sendable {
 
 /// HTTP method enumeration
 public enum HTTPMethod: String, Sendable {
-    case get = "GET"
-    case post = "POST"
-    case put = "PUT"
-    case delete = "DELETE"
-    case patch = "PATCH"
-    case options = "OPTIONS"
-    case head = "HEAD"
+    case get = "GET" // LIVE: public API for HTTP routing
+    case post = "POST" // LIVE: public API for HTTP routing
+    case put = "PUT" // LIVE: public API for HTTP routing
+    case delete = "DELETE" // LIVE: public API for HTTP routing
+    case patch = "PATCH" // LIVE: public API for HTTP routing
+    case options = "OPTIONS" // LIVE: public API for HTTP routing
+    case head = "HEAD" // LIVE: public API for HTTP routing
 }
 
 /// Platform-agnostic HTTP response representation

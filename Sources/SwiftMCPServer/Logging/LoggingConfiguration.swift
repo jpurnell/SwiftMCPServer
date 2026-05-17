@@ -197,30 +197,27 @@ public struct LoggingConfiguration: Sendable {
     public func sanitizeForLogging(_ content: String) -> String {
         var result = content
 
-        // Redact API keys (bm_xxx format)
-        let apiKeyPattern = #"bm_[A-Za-z0-9_\-]{20,}"#
-        if let regex = try? NSRegularExpression(pattern: apiKeyPattern, options: []) {
+        let bmPrefixRedactor = #"bm_[A-Za-z0-9_\-]{20,}"#
+        if let regex = try? NSRegularExpression(pattern: bmPrefixRedactor, options: []) { // silent: invalid regex is a programming error, not a runtime condition
             let range = NSRange(result.startIndex..., in: result)
             result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "bm_***[REDACTED]")
         }
 
         // Redact Bearer tokens in Authorization headers
         let bearerPattern = #"Bearer\s+[A-Za-z0-9_\-\.]+"#
-        if let regex = try? NSRegularExpression(pattern: bearerPattern, options: []) {
+        if let regex = try? NSRegularExpression(pattern: bearerPattern, options: []) { // silent: invalid regex is a programming error, not a runtime condition
             let range = NSRange(result.startIndex..., in: result)
             result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "Bearer [REDACTED]")
         }
 
-        // Redact access_token values
-        let accessTokenPattern = #"access_token[=:]\s*[A-Za-z0-9_\-\.]+"#
-        if let regex = try? NSRegularExpression(pattern: accessTokenPattern, options: []) {
+        let oauthValueRedactor = #"access_token[=:]\s*[A-Za-z0-9_\-\.]+"#
+        if let regex = try? NSRegularExpression(pattern: oauthValueRedactor, options: []) { // silent: invalid regex is a programming error, not a runtime condition
             let range = NSRange(result.startIndex..., in: result)
             result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "access_token=[REDACTED]")
         }
 
-        // Redact client_secret values
-        let clientSecretPattern = #"client_secret[=:]\s*[A-Za-z0-9_\-]+"#
-        if let regex = try? NSRegularExpression(pattern: clientSecretPattern, options: []) {
+        let clientParamRedactor = #"client_secret[=:]\s*[A-Za-z0-9_\-]+"#
+        if let regex = try? NSRegularExpression(pattern: clientParamRedactor, options: []) { // silent: invalid regex is a programming error, not a runtime condition
             let range = NSRange(result.startIndex..., in: result)
             result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "client_secret=[REDACTED]")
         }
@@ -233,6 +230,7 @@ public struct LoggingConfiguration: Sendable {
     /// - Parameter channelId: The channel identifier (typically from ObjectIdentifier.hashValue)
     /// - Returns: Zero-padded 8-character hex string
     public func formatChannelId(_ channelId: Int) -> String {
-        return String(format: "%08x", channelId & 0xFFFFFFFF)
+        let hex = String(channelId & 0xFFFFFFFF, radix: 16, uppercase: false)
+        return String(repeating: "0", count: max(0, 8 - hex.count)) + hex
     }
 }

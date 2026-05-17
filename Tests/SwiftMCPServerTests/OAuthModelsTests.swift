@@ -298,7 +298,8 @@ struct OAuthModelsTests {
             let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
 
             #expect(json?["error"] as? String == "invalid_request")
-            #expect(json?["error_description"] != nil)
+            let errorDesc = try #require(json?["error_description"] as? String)
+            #expect(errorDesc.count >= 5)
         }
     }
 

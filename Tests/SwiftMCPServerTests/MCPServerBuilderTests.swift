@@ -181,13 +181,13 @@ struct MCPServerBuilderTests {
     // MARK: - Authentication
 
     @Test("Builder sets API key authenticator")
-    func builderSetsAuthenticator() {
+    func builderSetsAuthenticator() throws {
         let auth = APIKeyAuthenticator(apiKeys: ["test-key"])
         let config = MCPServer.builder()
             .authenticator(auth)
             .buildConfiguration()
 
-        #expect(config.authenticator != nil)
+        _ = try #require(config.authenticator)
     }
 
     @Test("Builder default has no authenticator")
@@ -201,7 +201,7 @@ struct MCPServerBuilderTests {
     // MARK: - Builder Chaining
 
     @Test("Builder supports full method chaining")
-    func builderFullChaining() {
+    func builderFullChaining() throws {
         let auth = APIKeyAuthenticator(apiKeys: ["key"])
         let config = MCPServer.builder()
             .serverName("My Server")
@@ -222,7 +222,7 @@ struct MCPServerBuilderTests {
         #expect(config.tlsCertPath == "/cert.pem")
         #expect(config.tlsKeyPath == "/key.pem")
         #expect(config.verbose == true)
-        #expect(config.authenticator != nil)
+        _ = try #require(config.authenticator)
         #expect(config.toolHandlers.count == 2)
     }
 
@@ -291,12 +291,12 @@ struct TestPromptProvider: MCPPromptProvider {
 struct ProviderBuilderTests {
 
     @Test("Builder sets resource provider")
-    func builderSetsResourceProvider() {
+    func builderSetsResourceProvider() throws {
         let config = MCPServer.builder()
             .resourceProvider(TestResourceProvider())
             .buildConfiguration()
 
-        #expect(config.resourceProvider != nil)
+        _ = try #require(config.resourceProvider)
     }
 
     @Test("Builder default has no resource provider")
@@ -308,12 +308,12 @@ struct ProviderBuilderTests {
     }
 
     @Test("Builder sets prompt provider")
-    func builderSetsPromptProvider() {
+    func builderSetsPromptProvider() throws {
         let config = MCPServer.builder()
             .promptProvider(TestPromptProvider())
             .buildConfiguration()
 
-        #expect(config.promptProvider != nil)
+        _ = try #require(config.promptProvider)
     }
 
     @Test("Builder default has no prompt provider")
@@ -325,7 +325,7 @@ struct ProviderBuilderTests {
     }
 
     @Test("Builder supports resource and prompt providers in chain")
-    func builderChainsProviders() {
+    func builderChainsProviders() throws {
         let config = MCPServer.builder()
             .serverName("Provider Test")
             .tool(EchoToolHandler())
@@ -335,8 +335,8 @@ struct ProviderBuilderTests {
 
         #expect(config.serverName == "Provider Test")
         #expect(config.toolHandlers.count == 1)
-        #expect(config.resourceProvider != nil)
-        #expect(config.promptProvider != nil)
+        _ = try #require(config.resourceProvider)
+        _ = try #require(config.promptProvider)
     }
 }
 

@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 import NIOCore
 import NIOPosix
 import NIOHTTP1
@@ -32,6 +33,7 @@ import NIOFoundationCompat
 ///
 /// ### Connection Management
 /// - ``close()``
+// Justification: all mutable state is accessed through the NIO Channel's EventLoop which serializes access
 public final class NIOHTTPConnection: HTTPConnection, @unchecked Sendable {
     /// The underlying NIO channel
     private let channel: Channel
@@ -54,7 +56,8 @@ public final class NIOHTTPConnection: HTTPConnection, @unchecked Sendable {
     public init(channel: Channel) {
         self.channel = channel
         // Use ObjectIdentifier for unique channel ID
-        self.id = String(format: "%016llx", ObjectIdentifier(channel).hashValue)
+        let hex = String(ObjectIdentifier(channel).hashValue, radix: 16, uppercase: false)
+        self.id = String(repeating: "0", count: max(0, 16 - hex.count)) + hex
         self.remoteAddress = channel.remoteAddress?.description ?? "unknown"
     }
 
@@ -124,7 +127,7 @@ public final class NIOHTTPConnection: HTTPConnection, @unchecked Sendable {
         do {
             try await channel.close()
         } catch {
-            // Log error but don't throw - close is best-effort
+            Logger(label: "nio-connection").debug("Close error (best-effort): \(error.localizedDescription, privacy: .public)")
         }
     }
 }

@@ -78,7 +78,7 @@ public actor APIKeyAuthenticator {
         } else if !authRequired {
             logger.warning("API key authentication is DISABLED - all requests allowed (development mode only)")
         } else {
-            logger.info("API key authentication enabled with \(apiKeys.count) key(s)")
+            logger.info("API key authentication enabled with \(apiKeys.count, privacy: .public) key(s)")
         }
     }
 
@@ -132,7 +132,7 @@ public actor APIKeyAuthenticator {
     public func addKey(_ apiKey: String) {
         let hash = Self.hashKey(apiKey)
         validKeyHashes.insert(hash)
-        logger.info("Added new API key (total: \(validKeyHashes.count))")
+        logger.info("Added new API key (total: \(validKeyHashes.count, privacy: .public))")
     }
 
     /// Remove an API key
@@ -140,7 +140,7 @@ public actor APIKeyAuthenticator {
     public func removeKey(_ apiKey: String) {
         let hash = Self.hashKey(apiKey)
         if validKeyHashes.remove(hash) != nil {
-            logger.info("Removed API key (remaining: \(validKeyHashes.count))")
+            logger.info("Removed API key (remaining: \(validKeyHashes.count, privacy: .public))")
         }
     }
 
@@ -193,7 +193,7 @@ public actor APIKeyAuthenticator {
             }
         }
 
-        return hash.map { String(format: "%02x", $0) }.joined()
+        return hash.map { ($0 < 16 ? "0" : "") + String($0, radix: 16, uppercase: false) }.joined()
     }
 }
 

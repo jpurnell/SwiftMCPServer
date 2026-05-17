@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 
 /// Cross-platform expression evaluation
 ///
@@ -43,7 +44,7 @@ public enum ExpressionEvaluator {
             let parser = SimpleExpressionParser(cleaned)
             return try parser.parse()
         } catch {
-            // If parsing fails, return 0.0
+            Logger(label: "expression-parser").debug("Parse error: \(error.localizedDescription, privacy: .public)")
             return 0.0
         }
     }

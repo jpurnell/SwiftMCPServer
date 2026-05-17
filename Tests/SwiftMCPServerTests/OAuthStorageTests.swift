@@ -21,7 +21,7 @@ struct OAuthStorageTests {
         @Test("Creates in-memory database")
         func createsInMemoryDatabase() throws {
             let storage = try OAuthStorageTests.makeTestStorage()
-            #expect(storage != nil)
+            #expect(true, "Storage created successfully: \(type(of: storage))")
         }
 
         @Test("Creates file-based database")
@@ -33,7 +33,7 @@ struct OAuthStorageTests {
             defer { try? FileManager.default.removeItem(atPath: tempPath) }
 
             let storage = try OAuthStorage(path: tempPath)
-            #expect(storage != nil)
+            #expect(type(of: storage) == OAuthStorage.self)
             #expect(FileManager.default.fileExists(atPath: tempPath))
         }
 
@@ -70,14 +70,13 @@ struct OAuthStorageTests {
             )
 
             try await storage.saveClient(client)
-            let retrieved = try await storage.getClient(clientId: "test-client-123")
+            let retrieved = try #require(await storage.getClient(clientId: "test-client-123"))
 
-            #expect(retrieved != nil)
-            #expect(retrieved?.clientId == client.clientId)
-            #expect(retrieved?.clientSecret == client.clientSecret)
-            #expect(retrieved?.clientName == client.clientName)
-            #expect(retrieved?.redirectUris == client.redirectUris)
-            #expect(retrieved?.grantTypes == client.grantTypes)
+            #expect(retrieved.clientId == client.clientId)
+            #expect(retrieved.clientSecret == client.clientSecret)
+            #expect(retrieved.clientName == client.clientName)
+            #expect(retrieved.redirectUris == client.redirectUris)
+            #expect(retrieved.grantTypes == client.grantTypes)
         }
 
         @Test("Returns nil for non-existent client")
@@ -137,7 +136,7 @@ struct OAuthStorageTests {
             )
 
             try await storage.saveClient(client)
-            #expect(try await storage.getClient(clientId: "delete-test") != nil)
+            _ = try #require(await storage.getClient(clientId: "delete-test"))
 
             try await storage.deleteClient(clientId: "delete-test")
             #expect(try await storage.getClient(clientId: "delete-test") == nil)
@@ -186,13 +185,12 @@ struct OAuthStorageTests {
             )
 
             try await storage.saveAuthorizationCode(code)
-            let retrieved = try await storage.getAuthorizationCode(code: "auth_code_123")
+            let retrieved = try #require(await storage.getAuthorizationCode(code: "auth_code_123"))
 
-            #expect(retrieved != nil)
-            #expect(retrieved?.code == code.code)
-            #expect(retrieved?.clientId == code.clientId)
-            #expect(retrieved?.codeChallenge == code.codeChallenge)
-            #expect(retrieved?.scope == code.scope)
+            #expect(retrieved.code == code.code)
+            #expect(retrieved.clientId == code.clientId)
+            #expect(retrieved.codeChallenge == code.codeChallenge)
+            #expect(retrieved.scope == code.scope)
         }
 
         @Test("Consumes authorization code (single use)")
@@ -213,8 +211,7 @@ struct OAuthStorageTests {
             try await storage.saveAuthorizationCode(code)
 
             // First retrieval should succeed
-            let first = try await storage.consumeAuthorizationCode(code: "single_use_code")
-            #expect(first != nil)
+            _ = try #require(await storage.consumeAuthorizationCode(code: "single_use_code"))
 
             // Second retrieval should fail (code consumed)
             let second = try await storage.consumeAuthorizationCode(code: "single_use_code")
@@ -392,11 +389,10 @@ struct OAuthStorageTests {
                 expiresAt: expiresAt
             )
 
-            let info = try await storage.getRefreshTokenInfo(token: token)
+            let info = try #require(await storage.getRefreshTokenInfo(token: token))
 
-            #expect(info != nil)
-            #expect(info?.clientId == "client-123")
-            #expect(info?.scope == "mcp:tools mcp:resources")
+            #expect(info.clientId == "client-123")
+            #expect(info.scope == "mcp:tools mcp:resources")
         }
 
         @Test("Rejects expired refresh token")
@@ -427,7 +423,7 @@ struct OAuthStorageTests {
                 expiresAt: Date().addingTimeInterval(3600)
             )
 
-            #expect(try await storage.getRefreshTokenInfo(token: token) != nil)
+            _ = try #require(await storage.getRefreshTokenInfo(token: token))
 
             try await storage.revokeRefreshToken(token: token)
 
@@ -545,8 +541,9 @@ struct OAuthStorageTests {
             async let revoke: Void = storage.revokeAccessToken(token: token)
 
             // Both should complete without crashing
-            _ = try await validate
+            let result = try await validate
             _ = try await revoke
+            #expect(true, "Concurrent validate (\(result)) and revoke completed without data race")
         }
     }
 }

@@ -5,9 +5,10 @@ import Testing
 struct SwiftMCPServerSmokeTests {
 
     @Test("Package imports successfully")
-    func packageImports() {
+    func packageImports() async {
         // Verify the module can be imported and key types exist
         let registry = ToolDefinitionRegistry()
-        #expect(registry != nil)
+        let tools = await registry.listTools()
+        #expect(tools.isEmpty)
     }
 }

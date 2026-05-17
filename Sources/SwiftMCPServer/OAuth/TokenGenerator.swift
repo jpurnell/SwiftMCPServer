@@ -54,14 +54,12 @@ public enum TokenGenerator {
 
     /// Generates a cryptographically secure random token
     ///
-    /// Uses `SystemRandomNumberGenerator` for secure random bytes,
-    /// then encodes as URL-safe base64.
-    ///
-    /// - Parameter byteLength: Number of random bytes (default 32 = 256 bits)
+    /// - Parameters:
+    ///   - byteLength: Number of random bytes (default 32 = 256 bits)
+    ///   - rng: Random number generator to use
     /// - Returns: URL-safe base64 encoded random string
-    public static func generateToken(byteLength: Int = 32) -> String {
+    public static func generateToken(byteLength: Int = 32, using rng: inout some RandomNumberGenerator) -> String {
         var bytes = [UInt8](repeating: 0, count: byteLength)
-        var rng = SystemRandomNumberGenerator()
 
         for i in 0..<byteLength {
             bytes[i] = UInt8.random(in: 0...255, using: &rng)
@@ -72,6 +70,15 @@ public enum TokenGenerator {
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
+    }
+
+    /// Generates a cryptographically secure random token using the system RNG
+    ///
+    /// - Parameter byteLength: Number of random bytes (default 32 = 256 bits)
+    /// - Returns: URL-safe base64 encoded random string
+    public static func generateToken(byteLength: Int = 32) -> String {
+        var rng = SystemRandomNumberGenerator() // stochastic:exempt convenience wrapper; injectable overload above
+        return generateToken(byteLength: byteLength, using: &rng)
     }
 
     /// Generates a client ID
@@ -134,7 +141,7 @@ public enum TokenGenerator {
     public static func sha256Hash(_ input: String) -> String {
         let data = Data(input.utf8)
         let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+        return digest.map { ($0 < 16 ? "0" : "") + String($0, radix: 16, uppercase: false) }.joined()
     }
 
     // MARK: - Comparison

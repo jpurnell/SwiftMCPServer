@@ -162,6 +162,7 @@ public struct ClientRegistrationRequest: Codable, Sendable, Equatable {
         case scope
     }
 
+    /// Decodes a client registration request from the given decoder
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.clientName = try container.decode(String.self, forKey: .clientName)
@@ -324,6 +325,7 @@ public enum OAuthError: Error, Codable, Sendable, Equatable {
         case errorDescription = "error_description"
     }
 
+    /// Decodes an OAuth error from the given decoder
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let code = try container.decode(String.self, forKey: .error)
@@ -339,6 +341,7 @@ public enum OAuthError: Error, Codable, Sendable, Equatable {
         }
     }
 
+    /// Encodes this OAuth error to the given encoder
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(errorCode, forKey: .error)

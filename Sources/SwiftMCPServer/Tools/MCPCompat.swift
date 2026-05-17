@@ -11,10 +11,14 @@ public protocol MCPToolHandler: Sendable {
 
 /// Compatibility type matching our old MCPTool
 public struct MCPTool: Sendable {
+    /// The tool name
     public let name: String
+    /// A human-readable description of the tool
     public let description: String
+    /// The JSON Schema describing the tool's input parameters
     public let inputSchema: MCPToolInputSchema
 
+    /// Creates a new tool definition
     public init(name: String, description: String, inputSchema: MCPToolInputSchema) {
         self.name = name
         self.description = description
@@ -33,10 +37,14 @@ public struct MCPTool: Sendable {
 
 /// Compatibility type for tool input schema
 public struct MCPToolInputSchema: Sendable {
+    /// The JSON Schema type (typically "object")
     public let type: String
+    /// Property definitions for this schema
     public let properties: [String: MCPSchemaProperty]?
+    /// List of required property names
     public let required: [String]?
 
+    /// Creates a new input schema
     public init(type: String = "object", properties: [String: MCPSchemaProperty]? = nil, required: [String]? = nil) {
         self.type = type
         self.properties = properties
@@ -67,11 +75,16 @@ public struct MCPToolInputSchema: Sendable {
 
 /// Compatibility type for schema property
 public struct MCPSchemaProperty: Sendable {
+    /// The JSON Schema type of this property
     public let type: String
+    /// A human-readable description of this property
     public let description: String?
+    /// Allowed values for this property
     public let `enum`: [String]?
+    /// Schema for array items
     public let items: MCPSchemaItems?
 
+    /// Creates a new schema property
     public init(type: String, description: String? = nil, `enum`: [String]? = nil, items: MCPSchemaItems? = nil) {
         self.type = type
         self.description = description
@@ -103,8 +116,10 @@ public struct MCPSchemaProperty: Sendable {
 
 /// Compatibility type for schema items
 public struct MCPSchemaItems: Sendable {
+    /// The JSON Schema type of the array items
     public let type: String
 
+    /// Creates a new schema items definition
     public init(type: String) {
         self.type = type
     }
@@ -116,9 +131,12 @@ public struct MCPSchemaItems: Sendable {
 }
 
 /// Compatibility type-erased wrapper
+// Justification: wraps an immutable Any value set once at init and never mutated
 public struct AnyCodable: @unchecked Sendable {
+    /// The wrapped value
     public let value: Any
 
+    /// Creates a new type-erased codable value
     public init<T: Codable & Sendable>(_ value: T) {
         self.value = value
     }
@@ -161,16 +179,20 @@ public struct AnyCodable: @unchecked Sendable {
 
 /// Compatibility result type
 public struct MCPToolCallResult: Sendable {
+    /// The underlying SDK call tool result
     public let result: CallTool.Result
 
+    /// Creates a new result wrapping an SDK result
     public init(_ result: CallTool.Result) {
         self.result = result
     }
 
+    /// Creates a successful result with the given text
     public static func success(text: String) -> MCPToolCallResult {
         return MCPToolCallResult(CallTool.Result(content: [.text(text)], isError: false))
     }
 
+    /// Creates an error result with the given message
     public static func error(message: String) -> MCPToolCallResult {
         return MCPToolCallResult(CallTool.Result(content: [.text(message)], isError: true))
     }
@@ -183,6 +205,7 @@ public enum ToolError: Error, LocalizedError {
     case executionFailed(String, String)
     case missingRequiredArgument(String)
 
+    /// A localized description of the error
     public var errorDescription: String? {
         switch self {
         case .toolNotFound(let name):
@@ -200,11 +223,6 @@ public enum ToolError: Error, LocalizedError {
 // MARK: - Conversion Helpers
 
 extension Dictionary where Key == String, Value == AnyCodable {
-    /// Convert from MCP.Value dictionary
-    static func from(_ mcpDict: [String: MCP.Value]) -> [String: AnyCodable] {
-        return mcpDict.mapValues { AnyCodable($0) }
-    }
-
     /// Get required string
     public func getString(_ key: String) throws -> String {
         guard let value = self[key] else {

@@ -38,10 +38,7 @@ public actor OAuthStorage {
 
     // MARK: - Properties
 
-    // Using nonisolated(unsafe) because:
-    // 1. SQLite with serialized threading mode is thread-safe
-    // 2. All actual database access is through actor-isolated methods
-    // 3. Only deinit accesses this from non-isolated context
+    // Justification: SQLite with serialized threading mode is thread-safe; all access is through actor-isolated methods
     private nonisolated(unsafe) let db: OpaquePointer
     private let path: String
 
@@ -57,10 +54,10 @@ public actor OAuthStorage {
 
         // Create parent directory if needed
         if path != ":memory:" {
-            let directory = (path as NSString).deletingLastPathComponent
-            if !directory.isEmpty && !FileManager.default.fileExists(atPath: directory) {
+            let directoryURL = URL(fileURLWithPath: (path as NSString).deletingLastPathComponent).standardized
+            if !directoryURL.path.isEmpty {
                 try FileManager.default.createDirectory(
-                    atPath: directory,
+                    at: directoryURL,
                     withIntermediateDirectories: true
                 )
             }
@@ -722,7 +719,7 @@ public actor OAuthStorage {
     private func hashToken(_ token: String) -> String {
         let data = Data(token.utf8)
         let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
+        return digest.map { ($0 < 16 ? "0" : "") + String($0, radix: 16, uppercase: false) }.joined()
     }
 
     /// Generates a cryptographically secure random token
@@ -733,7 +730,7 @@ public actor OAuthStorage {
         // SymmetricKey generates cryptographically secure random bytes
         let key = SymmetricKey(size: .bits256)
         return key.withUnsafeBytes { bytes in
-            bytes.prefix(length).map { String(format: "%02x", $0) }.joined()
+            bytes.prefix(length).map { ($0 < 16 ? "0" : "") + String($0, radix: 16, uppercase: false) }.joined()
         }
     }
 
@@ -805,8 +802,11 @@ public actor OAuthStorage {
 
 /// Information about a valid refresh token
 public struct RefreshTokenInfo: Sendable {
+    /// The client identifier that owns this token
     public let clientId: String
+    /// The authorized scope for this token
     public let scope: String?
+    /// When this token expires
     public let expiresAt: Date
 }
 
@@ -814,9 +814,8 @@ public struct RefreshTokenInfo: Sendable {
 
 /// Errors that can occur during OAuth storage operations
 public enum OAuthStorageError: Error, Sendable {
+    /// A database operation failed with the given message
     case databaseError(String)
-    case notFound
-    case invalidData
 }
 
 // MARK: - SQLite Helpers

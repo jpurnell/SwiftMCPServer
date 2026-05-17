@@ -9,6 +9,7 @@ public enum ValueExtractionError: Error, LocalizedError {
     case invalidArguments(String)
     case executionFailed(String, String)
 
+    /// A localized description of the error
     public var errorDescription: String? {
         switch self {
         case .missingRequiredArgument(let key):

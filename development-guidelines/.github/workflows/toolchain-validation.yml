@@ -1,0 +1,96 @@
+name: Toolchain Validation
+
+# Validates that all tools prescribed by these development guidelines
+# build, pass their own tests, and produce correct results.
+#
+# If quality-gate-swift breaks, this catches it BEFORE any consuming
+# project discovers the failure in their own CI.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly Monday 08:00 UTC — catch upstream drift even without pushes
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate-swift:
+    name: "quality-gate-swift: build + test + self-check"
+    runs-on: macos-latest
+    steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Clone quality-gate-swift (latest main)
+        run: git clone --depth 1 https://github.com/jpurnell/quality-gate-swift.git /tmp/qg
+
+      - name: Build
+        working-directory: /tmp/qg
+        run: |
+          swift build -c release 2>&1 | tail -5
+          echo "Built from $(git rev-parse --short HEAD)"
+
+      - name: Run test suite
+        working-directory: /tmp/qg
+        run: swift test 2>&1 | tail -5
+
+      - name: Self-check (quality-gate runs against itself)
+        working-directory: /tmp/qg
+        run: .build/release/quality-gate --check safety --check status --continue-on-failure
+
+      - name: Smoke test — bootstrap on empty project
+        run: |
+          mkdir -p /tmp/smoke-test/Sources/App
+          mkdir -p /tmp/smoke-test/Tests/AppTests
+          mkdir -p /tmp/smoke-test/development-guidelines/00_CORE_RULES
+
+          cat > /tmp/smoke-test/Package.swift << 'PKGEOF'
+          // swift-tools-version: 6.0
+          import PackageDescription
+          let package = Package(
+              name: "SmokeTest",
+              targets: [
+                  .target(name: "App"),
+                  .testTarget(name: "AppTests", dependencies: ["App"]),
+              ]
+          )
+          PKGEOF
+
+          echo 'let x = 1' > /tmp/smoke-test/Sources/App/main.swift
+          echo 'import Testing' > /tmp/smoke-test/Tests/AppTests/Tests.swift
+
+          cd /tmp/smoke-test
+
+          # Bootstrap should generate a Master Plan
+          /tmp/qg/.build/release/quality-gate --check status --bootstrap
+          test -f development-guidelines/00_CORE_RULES/00_MASTER_PLAN.md || (echo "FAIL: bootstrap did not create Master Plan" && exit 1)
+
+          # Status check should now pass
+          /tmp/qg/.build/release/quality-gate --check status
+          echo "Smoke test passed"
+
+  swift-security-rules:
+    name: "swift-security-rules: validate YAML syntax"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone swift-security-rules (latest main)
+        run: git clone --depth 1 https://github.com/jpurnell/swift-security-rules.git /tmp/rules
+
+      - name: Validate YAML files
+        run: |
+          pip install yamllint
+          yamllint -d relaxed /tmp/rules/rules/
+          echo "All YAML rules are valid"
+
+      - name: Verify all 10 rules present
+        run: |
+          COUNT=$(ls /tmp/rules/rules/*.yaml | wc -l)
+          echo "Found $COUNT rule files"
+          test "$COUNT" -ge 10 || (echo "FAIL: Expected at least 10 rules, found $COUNT" && exit 1)

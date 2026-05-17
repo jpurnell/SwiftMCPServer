@@ -73,8 +73,9 @@ struct OAuthServerTests {
 
             let response = try await server.registerClient(request)
 
-            #expect(!response.clientId.isEmpty)
-            #expect(response.clientSecret != nil)
+            #expect(response.clientId.count >= 8)
+            let secret = try #require(response.clientSecret)
+            #expect(secret.count >= 8)
             #expect(response.clientName == "Test Client")
             #expect(response.redirectUris == ["http://localhost:8080/callback"])
         }
@@ -140,7 +141,7 @@ struct OAuthServerTests {
                 _ = try await server.registerClient(request)
                 Issue.record("Should have thrown error for empty redirect URIs")
             } catch {
-                // Expected
+                #expect(true, "Correctly rejected empty redirect URIs")
             }
         }
     }
@@ -678,8 +679,8 @@ struct OAuthServerTests {
                 refreshToken: nil
             ))
 
-            #expect(tokenResponse.scope != nil)
-            let scopes = Set(tokenResponse.scope!.split(separator: " ").map(String.init))
+            let scope = try #require(tokenResponse.scope)
+            let scopes = Set(scope.split(separator: " ").map(String.init))
             #expect(scopes.contains("mcp:tools"))
             #expect(scopes.contains("mcp:resources"))
             #expect(scopes.contains("mcp:prompts"))
@@ -721,8 +722,8 @@ struct OAuthServerTests {
                 refreshToken: nil
             ))
 
-            #expect(tokenResponse.scope != nil)
-            let scopes = Set(tokenResponse.scope!.split(separator: " ").map(String.init))
+            let scope = try #require(tokenResponse.scope)
+            let scopes = Set(scope.split(separator: " ").map(String.init))
             #expect(scopes.contains("mcp:tools"))
             #expect(scopes.contains("mcp:resources"))
             #expect(scopes.contains("mcp:prompts"))

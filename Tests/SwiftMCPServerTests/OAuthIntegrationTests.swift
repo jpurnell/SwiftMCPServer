@@ -30,14 +30,14 @@ struct OAuthIntegrationTests {
             )
 
             // Verify transport was created
-            #expect(transport != nil)
+            #expect(type(of: transport) == HTTPServerTransport.self)
         }
 
         @Test("Transport works without OAuth server")
         func transportWorksWithoutOAuth() async throws {
             // This should work exactly as before
             let transport = HTTPServerTransport(port: 0)
-            #expect(transport != nil)
+            #expect(type(of: transport) == HTTPServerTransport.self)
         }
     }
 
@@ -69,8 +69,8 @@ struct OAuthIntegrationTests {
             // Parse client credentials
             let regData = regResponse.body.data(using: .utf8)!
             let client = try JSONDecoder().decode(ClientRegistrationResponse.self, from: regData)
-            #expect(client.clientId.count > 0)
-            #expect(client.clientSecret != nil)
+            #expect(client.clientId.count >= 8)
+            let secret = try #require(client.clientSecret)
 
             // Step 2: Get authorization code with PKCE
             let verifier = PKCE.generateCodeVerifier()
@@ -90,14 +90,13 @@ struct OAuthIntegrationTests {
             #expect(consentResponse.statusCode == 200, "Should return consent page")
 
             // Extract CSRF token and submit consent
-            let csrfToken = OAuthIntegrationTests.extractCSRFToken(from: consentResponse.body)
-            #expect(csrfToken != nil, "Should have CSRF token")
+            let csrfToken = try #require(OAuthIntegrationTests.extractCSRFToken(from: consentResponse.body), "Should have CSRF token")
 
             let consentParams: [String: String] = [
                 "action": "approve",
                 "client_id": client.clientId,
                 "redirect_uri": "http://localhost/callback",
-                "csrf_token": csrfToken!,
+                "csrf_token": csrfToken,
                 "scope": "mcp:tools",
                 "code_challenge": challenge,
                 "code_challenge_method": "S256"
@@ -108,16 +107,15 @@ struct OAuthIntegrationTests {
 
             // Extract code from redirect
             let location = authResponse.headers["Location"]!
-            let code = OAuthIntegrationTests.extractCode(from: location)
-            #expect(code != nil)
+            let code = try #require(OAuthIntegrationTests.extractCode(from: location))
 
             // Step 3: Exchange code for tokens
             let tokenBody = buildFormBody([
                 "grant_type": "authorization_code",
-                "code": code!,
+                "code": code,
                 "redirect_uri": "http://localhost/callback",
                 "client_id": client.clientId,
-                "client_secret": client.clientSecret!,
+                "client_secret": secret,
                 "code_verifier": verifier
             ])
 
@@ -126,8 +124,8 @@ struct OAuthIntegrationTests {
 
             let tokenData = tokenResponse.body.data(using: .utf8)!
             let tokens = try JSONDecoder().decode(TokenResponse.self, from: tokenData)
-            #expect(tokens.accessToken.count > 0)
-            #expect(tokens.refreshToken != nil)
+            #expect(tokens.accessToken.count >= 10)
+            _ = try #require(tokens.refreshToken)
             #expect(tokens.tokenType == "Bearer")
 
             // Step 4: Validate the token

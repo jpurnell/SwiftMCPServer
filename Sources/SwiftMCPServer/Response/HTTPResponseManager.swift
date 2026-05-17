@@ -47,11 +47,12 @@ public actor HTTPResponseManager {
         case number(Int)
         case null
 
+        /// Decodes a JSON-RPC ID from the given decoder
         public init(from decoder: Decoder) throws {
             let container = try decoder.singleValueContainer()
-            if let string = try? container.decode(String.self) {
+            if let string = try? container.decode(String.self) { // silent: trying alternative types
                 self = .string(string)
-            } else if let number = try? container.decode(Int.self) {
+            } else if let number = try? container.decode(Int.self) { // silent: trying alternative types
                 self = .number(number)
             } else if container.decodeNil() {
                 self = .null
@@ -65,6 +66,7 @@ public actor HTTPResponseManager {
             }
         }
 
+        /// Encodes this JSON-RPC ID to the given encoder
         public func encode(to encoder: Encoder) throws {
             var container = encoder.singleValueContainer()
             switch self {
@@ -120,7 +122,7 @@ public actor HTTPResponseManager {
             requestId: requestId
         )
         pendingRequests[requestId] = pending
-        logger.debug("Registered pending request: \(requestId)")
+        logger.debug("Registered pending request: \(requestId, privacy: .public)")
     }
 
     /// Attach an Mcp-Session-Id to a pending request so it's included in the response header
@@ -140,7 +142,7 @@ public actor HTTPResponseManager {
 
         // Look up the pending request
         guard let pending = pendingRequests.removeValue(forKey: requestId) else {
-            logger.warning("No pending request found for JSON-RPC ID: \(requestId)")
+            logger.warning("No pending request found for JSON-RPC ID: \(requestId, privacy: .public)")
             return false
         }
 
@@ -153,13 +155,13 @@ public actor HTTPResponseManager {
             mcpSessionId: pending.mcpSessionId
         )
 
-        logger.debug("Routed response for request: \(requestId)")
+        logger.debug("Routed response for request: \(requestId, privacy: .public)")
         return true
     }
 
     /// Extract JSON-RPC ID from response data
     private func extractRequestId(from data: Data) -> JSONRPCId? {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { // silent: returns nil for non-JSON data
             return nil
         }
 
@@ -187,6 +189,7 @@ public actor HTTPResponseManager {
         contentType: String,
         mcpSessionId: String? = nil
     ) {
+        let localLogger = logger
         Task {
             // Build headers list
             var headers: [(String, String)] = [
@@ -206,10 +209,9 @@ public actor HTTPResponseManager {
             // Send proper HTTP response (.head, .body, .end)
             do {
                 try await connection.sendHTTPResponse(statusCode: statusCode, headers: headers, body: body)
-                // Close connection after response
                 await connection.close()
             } catch {
-                self.logger.error("Failed to send HTTP response: \(error.localizedDescription)")
+                localLogger.error("Failed to send HTTP response: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -247,7 +249,7 @@ public actor HTTPResponseManager {
                 )
             }
 
-            logger.warning("Request timed out: \(requestId)")
+            logger.warning("Request timed out: \(requestId, privacy: .public)")
         }
     }
 

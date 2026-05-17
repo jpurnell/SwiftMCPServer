@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 
 /// HTTP request/response handler for OAuth 2.0 endpoints
 ///
@@ -13,12 +14,14 @@ import Foundation
 public struct OAuthHTTPHandler: Sendable {
 
     private let server: OAuthServer
+    private let logger: Logger
 
     /// Creates a new OAuth HTTP handler
     ///
     /// - Parameter server: The OAuth server to delegate to
     public init(server: OAuthServer) {
         self.server = server
+        self.logger = Logger(label: "oauth-http-handler")
     }
 
     // MARK: - Protected Resource Metadata
@@ -44,6 +47,7 @@ public struct OAuthHTTPHandler: Sendable {
                 body: body
             )
         } catch {
+            logger.debug("OAuth error: \(error.localizedDescription, privacy: .public)")
             return errorResponse(.serverError("Failed to encode protected resource metadata"))
         }
     }
@@ -68,6 +72,7 @@ public struct OAuthHTTPHandler: Sendable {
                 body: body
             )
         } catch {
+            logger.debug("OAuth error: \(error.localizedDescription, privacy: .public)")
             return errorResponse(.serverError("Failed to encode metadata"))
         }
     }
@@ -98,8 +103,10 @@ public struct OAuthHTTPHandler: Sendable {
                 body: responseBody
             )
         } catch let error as OAuthError {
+            logger.debug("OAuth error: \(error.errorCode, privacy: .public)")
             return errorResponse(error)
         } catch {
+            logger.debug("OAuth error: \(error.localizedDescription, privacy: .public)")
             return errorResponse(.invalidRequest)
         }
     }
@@ -157,6 +164,7 @@ public struct OAuthHTTPHandler: Sendable {
                 body: consentPage.render()
             )
         } catch let error as OAuthError {
+            logger.debug("OAuth error: \(error.errorCode, privacy: .public)")
             // For invalid redirect_uri, we must NOT redirect to it
             // Instead, show an error page directly
             if case .invalidRequest = error {
@@ -171,6 +179,7 @@ public struct OAuthHTTPHandler: Sendable {
 
             return errorResponse(error)
         } catch {
+            logger.debug("OAuth error: \(error.localizedDescription, privacy: .public)")
             return errorResponse(.serverError("Unexpected error"))
         }
     }
@@ -212,6 +221,7 @@ public struct OAuthHTTPHandler: Sendable {
                 )
             }
         } catch {
+            logger.debug("OAuth error: \(error.localizedDescription, privacy: .public)")
             return OAuthHTTPResponse(
                 statusCode: 400,
                 contentType: "application/json",
@@ -229,6 +239,7 @@ public struct OAuthHTTPHandler: Sendable {
                 )
             }
         } catch {
+            logger.debug("OAuth error: \(error.localizedDescription, privacy: .public)")
             return OAuthHTTPResponse(
                 statusCode: 400,
                 contentType: "application/json",
@@ -296,6 +307,7 @@ public struct OAuthHTTPHandler: Sendable {
                     headers: ["Location": redirectURL]
                 )
             } catch let error as OAuthError {
+            logger.debug("OAuth error: \(error.errorCode, privacy: .public)")
                 // Redirect with error
                 var redirectComponents = URLComponents(string: redirectUri)
                 var queryItems = redirectComponents?.queryItems ?? []
@@ -319,6 +331,7 @@ public struct OAuthHTTPHandler: Sendable {
 
                 return errorResponse(error)
             } catch {
+            logger.debug("OAuth error: \(error.localizedDescription, privacy: .public)")
                 return errorResponse(.serverError("Authorization failed"))
             }
         }
@@ -386,8 +399,10 @@ public struct OAuthHTTPHandler: Sendable {
                 ]
             )
         } catch let error as OAuthError {
+            logger.debug("OAuth error: \(error.errorCode, privacy: .public)")
             return errorResponse(error)
         } catch {
+            logger.debug("OAuth error: \(error.localizedDescription, privacy: .public)")
             return errorResponse(.serverError("Token request failed"))
         }
     }
@@ -409,6 +424,7 @@ public struct OAuthHTTPHandler: Sendable {
         do {
             return try await server.validateAccessToken(token)
         } catch {
+            logger.debug("OAuth error: \(error.localizedDescription, privacy: .public)")
             return .invalid(reason: "Token validation failed")
         }
     }
@@ -456,6 +472,7 @@ public struct OAuthHTTPHandler: Sendable {
                 body: String(data: data, encoding: .utf8) ?? "{}"
             )
         } catch {
+            logger.debug("OAuth error: \(error.localizedDescription, privacy: .public)")
             return OAuthHTTPResponse(
                 statusCode: statusCode,
                 contentType: "application/json",
@@ -469,11 +486,16 @@ public struct OAuthHTTPHandler: Sendable {
 
 /// HTTP response from OAuth endpoints
 public struct OAuthHTTPResponse: Sendable {
+    /// The HTTP status code
     public let statusCode: Int
+    /// The Content-Type header value
     public let contentType: String
+    /// The response body
     public let body: String
+    /// Additional response headers
     public let headers: [String: String]
 
+    /// Creates a new OAuth HTTP response
     public init(
         statusCode: Int,
         contentType: String,

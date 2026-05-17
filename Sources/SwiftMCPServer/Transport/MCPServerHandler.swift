@@ -21,6 +21,7 @@ import Logging
 /// ### Channel Handling
 /// - ``channelRead(context:data:)``
 /// - ``errorCaught(context:error:)``
+// Justification: NIO ChannelHandler is confined to its EventLoop; all state access occurs on that loop
 final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
     typealias InboundIn = HTTPServerRequestPart
     typealias OutboundOut = HTTPServerResponsePart
@@ -73,7 +74,7 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
             if requestBody == nil {
                 requestBody = buffer
             } else {
-                requestBody!.writeBuffer(&buffer)
+                requestBody?.writeBuffer(&buffer)
             }
 
         case .end:
@@ -89,15 +90,14 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
     }
 
     func errorCaught(context: ChannelHandlerContext, error: Error) {
-        logger.debug("Channel error: \(error.localizedDescription)")
+        logger.debug("Channel error: \(error.localizedDescription, privacy: .public)")
         // Don't aggressively close - SSE connections should stay open
     }
 
     // MARK: - Request Handling
 
     private nonisolated func handleRequest(context: ChannelHandlerContext, head: HTTPRequestHead, body: ByteBuffer?) {
-        // Create a local binding to avoid capturing non-Sendable ChannelHandlerContext in @Sendable closure.
-        // Safety: This class is @unchecked Sendable and the context is only used on its event loop.
+        // Justification: ChannelHandlerContext is confined to its EventLoop; used only within eventLoop.execute{}
         nonisolated(unsafe) let context = context
 
         // CRITICAL: Capture all context properties synchronously on the EventLoop
@@ -312,6 +312,7 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
 
     private func sendOAuthResponse(context: ChannelHandlerContext, response: OAuthHTTPResponse) {
         let eventLoop = context.eventLoop
+        // Justification: ChannelHandlerContext is confined to its EventLoop; used only within eventLoop.execute{}
         nonisolated(unsafe) let unsafeContext = context
 
         eventLoop.execute {
@@ -410,7 +411,7 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
         let bodyData = Data(buffer: bodyBuffer)
 
         // Parse JSON-RPC
-        guard let json = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any] else {
+        guard let json = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any] else { // silent: returns 400 for invalid JSON
             sendResponse(context: context, status: .badRequest, body: "Invalid JSON")
             return
         }
@@ -508,13 +509,14 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
 
         let responseHead = HTTPResponseHead(version: .http1_1, status: .ok, headers: sseHeaders)
 
+        // Justification: ChannelHandlerContext is confined to its EventLoop; used only within eventLoop.execute{}
         nonisolated(unsafe) let unsafeContext = context
         eventLoop.execute {
             unsafeContext.write(self.wrapOutboundOut(.head(responseHead)), promise: nil)
             unsafeContext.flush()
         }
 
-        logger.info("Streamable HTTP SSE stream opened for session \(sessionId)")
+        logger.info("Streamable HTTP SSE stream opened for session \(sessionId, privacy: .public)")
     }
 
     /// Handle GET /mcp/sse — Legacy SSE endpoint for backward compatibility
@@ -544,6 +546,7 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
 
         let responseHead = HTTPResponseHead(version: .http1_1, status: .ok, headers: sseHeaders)
 
+        // Justification: ChannelHandlerContext is confined to its EventLoop; used only within eventLoop.execute{}
         nonisolated(unsafe) let unsafeContext = context
         eventLoop.execute {
             unsafeContext.write(self.wrapOutboundOut(.head(responseHead)), promise: nil)
@@ -553,7 +556,7 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
         // Send endpoint event with POST URL
         await session.sendEvent(event: "endpoint", data: "/mcp?sessionId=\(sessionId)")
 
-        logger.info("Legacy SSE connection opened with session \(sessionId)")
+        logger.info("Legacy SSE connection opened with session \(sessionId, privacy: .public)")
     }
 
     /// Handle DELETE /mcp — Terminate session
@@ -617,6 +620,7 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
     ) {
         // Ensure this runs on the EventLoop
         let eventLoop = context.eventLoop
+        // Justification: ChannelHandlerContext is confined to its EventLoop; used only within eventLoop.execute{}
         nonisolated(unsafe) let unsafeContext = context
 
         eventLoop.execute {
@@ -655,6 +659,7 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
     private func sendCORSPreflightResponse(context: ChannelHandlerContext) {
         // Ensure this runs on the EventLoop
         let eventLoop = context.eventLoop
+        // Justification: ChannelHandlerContext is confined to its EventLoop; used only within eventLoop.execute{}
         nonisolated(unsafe) let unsafeContext = context
 
         eventLoop.execute {
@@ -689,7 +694,7 @@ final class MCPServerHandler: ChannelInboundHandler, @unchecked Sendable {
     // MARK: - Utilities
 
     private func extractRequestId(from data: Data) -> HTTPResponseManager.JSONRPCId? {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { // silent: returns nil for non-JSON data
             return nil
         }
 

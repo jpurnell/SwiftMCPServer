@@ -52,7 +52,7 @@ public actor SSESessionManager {
     public func registerSession(_ session: SSESession) async {
         let sessionId = session.sessionId
         sessions[sessionId] = session
-        logger.info("Registered SSE session: \(sessionId)")
+        logger.info("Registered SSE session: \(sessionId, privacy: .public)")
     }
 
     /// Get a session by ID
@@ -69,7 +69,7 @@ public actor SSESessionManager {
             Task {
                 await session.close()
             }
-            logger.info("Removed SSE session: \(sessionId)")
+            logger.info("Removed SSE session: \(sessionId, privacy: .public)")
         }
 
         // Clean up any request mappings for this session
@@ -89,7 +89,7 @@ public actor SSESessionManager {
     ///   - sessionId: The SSE session that should receive the response
     public func associateRequest(requestId: HTTPResponseManager.JSONRPCId, with sessionId: String) {
         requestToSession[requestId] = sessionId
-        logger.debug("Associated request \(requestId) with session \(sessionId)")
+        logger.debug("Associated request \(requestId, privacy: .public) with session \(sessionId, privacy: .public)")
     }
 
     /// Route a JSON-RPC response to the appropriate SSE session
@@ -105,13 +105,13 @@ public actor SSESessionManager {
 
         // Find the session for this request
         guard let sessionId = requestToSession.removeValue(forKey: requestId) else {
-            logger.warning("No session found for request \(requestId)")
+            logger.warning("No session found for request \(requestId, privacy: .public)")
             return false
         }
 
         // Send response via SSE
         guard let session = sessions[sessionId] else {
-            logger.warning("Session \(sessionId) no longer exists")
+            logger.warning("Session \(sessionId, privacy: .public) no longer exists")
             return false
         }
 
@@ -119,7 +119,7 @@ public actor SSESessionManager {
             await session.sendJSONRPCResponse(responseData)
         }
 
-        logger.debug("Routed response for request \(requestId) to session \(sessionId)")
+        logger.debug("Routed response for request \(requestId, privacy: .public) to session \(sessionId, privacy: .public)")
         return true
     }
 
@@ -147,7 +147,7 @@ public actor SSESessionManager {
     ///   - event: Event type
     ///   - data: Event data
     public func broadcast(event: String = "notification", data: String) {
-        logger.debug("Broadcasting \(event) to \(sessions.count) sessions")
+        logger.debug("Broadcasting \(event, privacy: .public) to \(sessions.count, privacy: .public) sessions")
 
         for session in sessions.values {
             Task {
@@ -207,7 +207,7 @@ public actor SSESessionManager {
 
         for sessionId in expiredSessions {
             removeSession(sessionId)
-            logger.info("Cleaned up expired session: \(sessionId)")
+            logger.info("Cleaned up expired session: \(sessionId, privacy: .public)")
         }
     }
 

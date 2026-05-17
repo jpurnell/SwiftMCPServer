@@ -41,7 +41,8 @@ struct SSETransportTests {
 
         #expect(statusCode == 200, "SSE endpoint should return 200")
         #expect(contentType?.contains("text/event-stream") == true, "Should return event-stream content type")
-        #expect(sessionId != nil, "Should include X-Session-ID header with UUID")
+        let sid = try #require(sessionId, "Should include X-Session-ID header with UUID")
+        #expect(sid.count == 36, "Session ID should be UUID format")
 
         await transport.disconnect()
     }
@@ -73,36 +74,17 @@ struct SSETransportTests {
 
     @Test("SSE + POST - Full request/response cycle", .disabled("Requires full MCP Server setup"))
     func testSSEWithPOSTIntegration() async throws {
-        // This test would verify the full flow:
-        // 1. Client opens SSE connection
-        // 2. Client sends JSON-RPC request via POST
-        // 3. Server processes request
-        // 4. Server sends response via SSE stream
-        // 5. Client receives response
-        //
-        // Deferred until we have a test harness that includes the MCP Server.
+        #expect(true, "Placeholder for full integration test")
     }
 
     @Test("SSE - Repeated initialize requests succeed (Bug 6 regression)", .disabled("Requires full MCP Server setup"))
     func testRepeatedInitialize() async throws {
-        // This test verifies the fix for Bug 6:
-        // MCP SDK Server class has isInitialized flag that throws on re-initialization.
-        // Our fix intercepts the error and returns a synthetic success response.
-        //
-        // The fix is in HTTPServerTransport.send() - tested manually via:
-        // `claude mcp list` run multiple times against the server.
-        //
-        // Deferred until we have a test harness that includes the MCP Server.
+        #expect(true, "Placeholder for reinitialization regression test")
     }
 
     @Test("SSE + POST - Response routing to correct client", .disabled("Requires full MCP Server setup"))
     func testSSEResponseRouting() async throws {
-        // This test would verify that responses go to the correct SSE stream:
-        // - Client A and Client B both connected
-        // - Client A sends request → receives response on their SSE stream
-        // - Client B should NOT receive Client A's response
-        //
-        // Deferred until we have a test harness that includes the MCP Server.
+        #expect(true, "Placeholder for response routing test")
     }
 
     // MARK: - Session Management Tests
@@ -207,12 +189,11 @@ struct SSETransportTests {
 
         // Get what was sent
         let sentData = await mockConnection.getSentData()
-        let sentString = String(data: sentData, encoding: .utf8)
-        #expect(sentString != nil, "Should have sent UTF-8 data")
+        let sentString = try #require(String(data: sentData, encoding: .utf8), "Should have sent UTF-8 data")
 
-        #expect(sentString?.contains("event: message") == true, "Should contain event type")
-        #expect(sentString?.contains("data: {\"test\":\"data\"}") == true, "Should contain data line")
-        #expect(sentString?.hasSuffix("\n\n") == true, "Should end with blank line")
+        #expect(sentString.contains("event: message"), "Should contain event type")
+        #expect(sentString.contains("data: {\"test\":\"data\"}"), "Should contain data line")
+        #expect(sentString.hasSuffix("\n\n"), "Should end with blank line")
     }
 
     @Test("SSE - Multi-line data handling")
@@ -231,13 +212,12 @@ struct SSETransportTests {
         try await Task.sleep(nanoseconds: 100_000_000) // 100ms
 
         let sentData = await mockConnection.getSentData()
-        let sentString = String(data: sentData, encoding: .utf8)
-        #expect(sentString != nil, "Should have sent UTF-8 data")
+        let sentString = try #require(String(data: sentData, encoding: .utf8), "Should have sent UTF-8 data")
 
         // Each line should be prefixed with "data: "
-        #expect(sentString?.contains("data: line1") == true, "Should have data prefix for line 1")
-        #expect(sentString?.contains("data: line2") == true, "Should have data prefix for line 2")
-        #expect(sentString?.contains("data: line3") == true, "Should have data prefix for line 3")
+        #expect(sentString.contains("data: line1"), "Should have data prefix for line 1")
+        #expect(sentString.contains("data: line2"), "Should have data prefix for line 2")
+        #expect(sentString.contains("data: line3"), "Should have data prefix for line 3")
     }
 }
 

@@ -61,7 +61,7 @@ public actor SSESession {
     ///   - id: Optional event ID for client-side deduplication
     public func sendEvent(event: String = "message", data: String, id: String? = nil) {
         guard isActive else {
-            logger.warning("Attempted to send event to inactive session \(sessionId)")
+            logger.warning("Attempted to send event to inactive session \(sessionId, privacy: .public)")
             return
         }
 
@@ -85,18 +85,12 @@ public actor SSESession {
 
         // Send to client
         guard let eventData = sseEvent.data(using: .utf8) else {
-            logger.error("Failed to encode SSE event for session \(sessionId)")
+            logger.error("Failed to encode SSE event for session \(sessionId, privacy: .public)")
             return
         }
 
         Task {
-            do {
-                try await connection.send(eventData)
-                lastActivityAt = Date()
-            } catch {
-                logger.error("Failed to send SSE event to session \(sessionId): \(error.localizedDescription)")
-                await close()
-            }
+            await self.sendData(eventData, debugLabel: "SSE event")
         }
     }
 
@@ -111,13 +105,17 @@ public actor SSESession {
         guard let heartbeatData = heartbeat.data(using: .utf8) else { return }
 
         Task {
-            do {
-                try await connection.send(heartbeatData)
-                lastActivityAt = Date()
-            } catch {
-                logger.debug("Heartbeat failed: \(error.localizedDescription)")
-                await close()
-            }
+            await self.sendData(heartbeatData, debugLabel: "heartbeat")
+        }
+    }
+
+    private func sendData(_ data: Data, debugLabel: String) async {
+        do {
+            try await connection.send(data)
+            lastActivityAt = Date()
+        } catch {
+            logger.error("Failed to send \(debugLabel, privacy: .public) to session \(sessionId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            await close()
         }
     }
 
@@ -138,7 +136,7 @@ public actor SSESession {
 
         isActive = false
         await connection.close()
-        logger.debug("Closed SSE session \(sessionId)")
+        logger.debug("Closed SSE session \(sessionId, privacy: .public)")
     }
 
     /// Check if session has timed out
